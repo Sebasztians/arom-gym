@@ -272,6 +272,12 @@ label.btn{display:inline-flex;align-items:center}
 .linkbtn{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
 .mt0{margin-top:4px}
 .btn:disabled{opacity:.45;cursor:default}
+
+.cqr{display:flex;align-items:center;gap:18px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.cqr .qr{width:180px;flex:none;padding:6px}
+.cqr b{font-family:var(--display);font-size:20px;text-transform:uppercase;letter-spacing:.02em}
+@media (max-width:520px){.cqr{flex-direction:column;text-align:center}.cqr .qr{width:min(260px,100%)}}
+#psum .kv{margin-top:4px}
 </style>
 </head>
 <body>
@@ -297,6 +303,7 @@ label.btn{display:inline-flex;align-items:center}
 
   <!-- PERFIL -->
   <section id="v-perfil" role="tabpanel" class="grid2">
+    <section class="panel" id="psum" hidden></section>
     <form class="panel" id="pform" novalidate>
       <h2>Tus datos</h2>
       <p class="sub">Con esto calculamos tu plan de entrenamiento y tus calorías diarias.</p>
@@ -318,7 +325,7 @@ label.btn{display:inline-flex;align-items:center}
           </div>
         </fieldset>
         <p class="err full" id="perr" role="alert"></p>
-        <div class="full"><button class="btn" type="submit">Guardar y crear mi plan</button></div>
+        <div class="full actions" style="margin:0"><button class="btn" type="submit" id="psave">Guardar y crear mi plan</button><button class="btn ghost" type="button" id="pcancel" hidden>Cancelar</button></div>
       </div>
     </form>
     <aside class="panel res" id="results"></aside>
@@ -690,11 +697,29 @@ function setTab(t){
   S.tab=t; save();
   ['perfil','plan','cal'].forEach(x=>{$('#v-'+x).hidden=x!==t;$('#t-'+x).setAttribute('aria-selected',x===t);});
 }
-function renderAll(){lockViews();renderTop();renderResults();renderPlan();renderCal();}
+let editing=false;
+const LAB={sexo:{h:'Hombre',m:'Mujer'},objetivo:{bajar:'Bajar grasa',ganar:'Ganar músculo',mantener:'Mantenerme y tonificar'},nivel:{prin:'Principiante',inter:'Intermedio',avan:'Avanzado'},actividad:{sed:'Sedentaria',lig:'Ligera',mod:'Moderada',alt:'Alta'}};
+function renderPerfilMode(){
+  const form=S.isExample||editing;
+  $('#pform').hidden=!form;$('#psum').hidden=form;
+  $('#pcancel').hidden=!(editing&&!S.isExample);
+  $('#psave').textContent=S.isExample?'Guardar y crear mi plan':'Guardar cambios';
+  if(form) return;
+  const p=S.profile,les=(p.lesiones||[]).map(k=>({knee:'Rodilla',back:'Espalda baja',shoulder:'Hombro'})[k]).join(', ')||'Ninguna';
+  const row=(a,b)=>`<span>${a}</span><b>${esc(b)}</b>`;
+  $('#psum').innerHTML=`<h2>Tus datos</h2><p class="sub">Tu plan y tus calorías se calculan con estos datos.</p>
+    <div class="kv">${row('Nombre',p.nombre)}${row('Edad',p.edad+' años')}${row('Sexo',LAB.sexo[p.sexo])}${row('Estatura',p.altura+' cm')}${row('Peso',p.peso+' kg')}${row('Objetivo',LAB.objetivo[p.objetivo])}${row('Experiencia',LAB.nivel[p.nivel])}${row('Días por semana',p.dias)}${row('Actividad diaria',LAB.actividad[p.actividad])}${row('Molestias',les)}</div>
+    <div class="actions"><button class="btn ghost" type="button" id="pedit">Editar mis datos</button></div>`;
+}
+function renderAll(){renderPerfilMode();lockViews();renderTop();renderResults();renderPlan();renderCal();}
 
 /* ---------- Eventos ---------- */
 document.querySelectorAll('#v-app .seg button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 document.getElementById('v-app').addEventListener('click',e=>{if(e.target.closest('[data-goto]')){setTab('perfil');$('#f-'+(S.isExample&&S.guestName?'edad':'nombre')).focus();}});
+document.getElementById('v-perfil').addEventListener('click',e=>{
+  if(e.target.closest('#pedit')){editing=true;fillForm();renderPerfilMode();$('#pform').scrollIntoView({behavior:'smooth',block:'start'});}
+  if(e.target.closest('#pcancel')){editing=false;fillForm();$('#perr').textContent='';renderPerfilMode();}
+});
 addEventListener('hashchange',()=>{if(takeGuest()){save();fillForm();renderAll();setTab('perfil');}});
 addEventListener('aromgym:cliente',e=>{const n=((e.detail&&e.detail.nombre)||'').trim();if(S.isExample&&n&&!S.guestName){S.guestName=n;S.profile.nombre=n;fillForm();renderAll();}});
 $('#gotoPerfil').addEventListener('click',()=>{setTab('perfil');$('#f-nombre').focus();});
@@ -711,9 +736,12 @@ $('#pform').addEventListener('submit',e=>{
   if(!(p.peso>=30&&p.peso<=250)) errs.push('el peso debe estar entre 30 y 250 kg');
   if(errs.length){$('#perr').textContent='Revisa: '+errs.join(', ')+'.';return;}
   $('#perr').textContent='';
+  const first=S.isExample;
   if(S.isExample){Object.keys(S.log).forEach(k=>{S.log[k]=S.log[k].filter(x=>!x.ex);});S.isExample=false;delete S.guestName;}
+  editing=false;
   S.profile=p; selDay=null; save(); renderAll();
-  toast('Perfil guardado. Tu plan y tus calorías ya están actualizados.');
+  toast(first?'¡Listo! Tu plan y tus calorías ya están creados.':'Datos actualizados. Tu plan y tus calorías se recalcularon.');
+  scrollTo(0,0);
 });
 
 $('#week').addEventListener('click',e=>{const b=e.target.closest('[data-day]');if(!b)return;selDay=+b.dataset.day;renderPlan();});
@@ -1369,7 +1397,7 @@ async function loadMemb(u){
   memb.innerHTML='<p class="sub" style="margin:0">Buscando tu membresía…</p>';
   const mail=String(u.email||'').toLowerCase();let m=null;
   try{const c=await db.collection('clientes').doc(mail).get();
-    if(c.exists){const s=await db.collection('membresias').doc(c.data().socioId).get();if(s.exists){const d=s.data();m={nombre:d.n,apellido:'',plan:d.p,inicio:d.s,fin:d.e};}}}catch(e){}
+    if(c.exists){const s=await db.collection('membresias').doc(c.data().socioId).get();if(s.exists){const d=s.data();m={id:c.data().socioId,nombre:d.n,apellido:'',plan:d.p,inicio:d.s,fin:d.e};}}}catch(e){}
   if(user!==u) return;
   paintMemb(u,m);
 }
@@ -1381,7 +1409,8 @@ function paintMemb(u,m){
   memb.innerHTML=`<div class="sband b-${e.cls}"><span class="label">Mi membresía</span><b>${e.lab}</b></div>
     <div class="dates"><div><span class="label">Inscripción</span><b>${fmt(m.inicio)}</b></div><div><span class="label">Vence</span><b>${fmt(m.fin)}</b></div><div><span class="label">${t[0]}</span><b>${t[1]}</b></div></div>
     <div class="prog"><i style="width:${e.pct}%;background:${barCol(e.cls)}"></i></div>
-    <p class="fine" style="margin-top:8px">${msg}</p>`+foot;
+    <p class="fine" style="margin-top:8px">${msg}</p>
+    <div class="cqr"><div class="qr">${qrSvg(linkFor(m))}</div><div><b>Mi código QR</b><p class="fine">Muéstralo en recepción al entrar. Es el mismo código de tu ficha en el gimnasio. Si no lo leen, sube el brillo de tu pantalla.</p></div></div>`+foot;
 }
 memb.addEventListener('click',e=>{if(e.target.closest('#c-out'))auth.signOut();});
 memb.addEventListener('change',e=>{
