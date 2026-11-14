@@ -257,6 +257,21 @@ label.btn{display:inline-flex;align-items:center}
 .sm2{display:block;color:var(--muted);font-size:12px}
 .brand .btn.sm{white-space:nowrap}
 @media (max-width:480px){#v-admin .tag{display:none}#v-admin .word{font-size:20px}#v-admin .logo{width:44px;height:44px}.buys.cash li{grid-template-columns:44px minmax(0,1fr) auto 28px;gap:8px}}
+
+#v-app.gated>:not(.brand):not(#c-gate){display:none!important}
+#c-gate{display:none;max-width:480px;margin:28px auto 0}
+#v-app.gated #c-gate{display:block}
+#c-gate h2{font-size:28px;text-transform:uppercase;margin-bottom:6px}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.4;cursor:pointer;margin:14px 0}
+.chk.sm{margin:0;font-size:13px}
+.chk input{width:18px;height:18px;accent-color:var(--accent);margin:1px 0 0;flex:none}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:#fff;color:#1f1f1f;border:1px solid #dadce0}
+.gbtn svg{width:20px;height:20px;flex:none}
+#c-memb{margin-top:16px}
+.cfoot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.linkbtn{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
+.mt0{margin-top:4px}
+.btn:disabled{opacity:.45;cursor:default}
 </style>
 </head>
 <body>
@@ -681,6 +696,7 @@ function renderAll(){lockViews();renderTop();renderResults();renderPlan();render
 document.querySelectorAll('#v-app .seg button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 document.getElementById('v-app').addEventListener('click',e=>{if(e.target.closest('[data-goto]')){setTab('perfil');$('#f-'+(S.isExample&&S.guestName?'edad':'nombre')).focus();}});
 addEventListener('hashchange',()=>{if(takeGuest()){save();fillForm();renderAll();setTab('perfil');}});
+addEventListener('aromgym:cliente',e=>{const n=((e.detail&&e.detail.nombre)||'').trim();if(S.isExample&&n&&!S.guestName){S.guestName=n;S.profile.nombre=n;fillForm();renderAll();}});
 $('#gotoPerfil').addEventListener('click',()=>{setTab('perfil');$('#f-nombre').focus();});
 
 $('#pform').addEventListener('submit',e=>{
@@ -774,7 +790,7 @@ const FV=()=>firebase.firestore.FieldValue.serverTimestamp();
 const fail=e=>{console.error(e);toast(e&&e.code==='permission-denied'?'Tu cuenta no tiene permiso para hacer esto.':'No se pudo guardar. Revisa tu conexión e inténtalo otra vez.');};
 
 let user=null,ready=false,unsub=[],raw={socios:null,compras:null,productos:null,personal:null,pagos:null};
-let A={socios:[],productos:[],personal:[],pagos:[],compras:[]};
+let A={socios:[],productos:[],personal:[],pagos:[],compras:[],appUsers:[]};
 const isOwner=()=>!!user&&String(user.email||'').toLowerCase()===OWNER;
 const getS=id=>A.socios.find(m=>m.id===id);
 let tab='socios',view='list',curId=null,filt='todos',q='',pendingOpen=null,waitingFor=null;
@@ -802,7 +818,8 @@ VA.addEventListener('focusout',()=>setTimeout(()=>{if(renderPending&&view!=='for
 function listen(){
   const snap=(col,key)=>db.collection(col).onSnapshot(s=>{raw[key]=s.docs.map(d=>Object.assign({id:d.id},d.data()));rebuild();},err=>{
     if(err.code==='permission-denied'){denied();}else{console.error(err);toast('Se perdió la conexión. Recarga la página.');}});
-  unsub=[snap('socios','socios'),snap('compras','compras'),snap('productos','productos'),snap('personal','personal'),snap('pagos','pagos')];
+  unsub=[snap('socios','socios'),snap('compras','compras'),snap('productos','productos'),snap('personal','personal'),snap('pagos','pagos'),
+    db.collection('usuarios_app').onSnapshot(q=>{A.appUsers=q.docs.map(d=>Object.assign({id:d.id},d.data()));if(ready)scheduleRender();},()=>{A.appUsers=[];})];
 }
 function stopListen(){unsub.forEach(u=>{try{u();}catch(e){}});unsub=[];raw={socios:null,compras:null,productos:null,personal:null,pagos:null};ready=false;}
 let deniedShown=false;
@@ -811,10 +828,16 @@ function denied(){
   const mail=user&&user.email;stopListen();auth.signOut();
   setTimeout(()=>{$('#pinerr').textContent='El correo '+(mail||'')+' no está autorizado como personal de AROM GYM. Pide al dueño que lo agregue.';deniedShown=false;},300);
 }
-if(auth) auth.onAuthStateChanged(u=>{
-  user=u;$('#a-wait').hidden=true;
-  if(u){listen();} else {stopListen();}
-  renderAdmin();
+let staffKnown=false,isStaffUser=false;
+async function checkStaff(u){
+  const mail=String(u.email||'').toLowerCase(); if(!mail) return false;
+  if(mail===OWNER) return true;
+  try{const s=await db.collection('personal').doc(mail).get();return s.exists;}catch(e){return false;}
+}
+if(auth) auth.onAuthStateChanged(async u=>{
+  user=u;staffKnown=false;isStaffUser=false;stopListen();
+  if(u){const st=await checkStaff(u);if(user!==u)return;isStaffUser=st;staffKnown=true;if(st)listen();}
+  renderAdmin();clientState(u);
   if(!$('#v-socio').hidden) scheduleRender();
 });
 
@@ -852,8 +875,10 @@ function topOf(list){
 
 /* ---------- Escrituras ---------- */
 const pubOf=d=>({n:(d.nombre+' '+d.apellido).trim(),p:d.plan,s:d.inicio,e:d.fin});
-function saveSocioDoc(id,d,isNew){
+function saveSocioDoc(id,d,isNew,oldMail){
   const b=db.batch();
+  if(oldMail&&oldMail!==d.correo) b.delete(db.collection('clientes').doc(oldMail));
+  if(d.correo) b.set(db.collection('clientes').doc(d.correo),{socioId:id});
   const data=Object.assign({},d,isNew?{creado:FV(),por:user.email}:{editado:FV()});
   b.set(db.collection('socios').doc(id),data,{merge:true});
   b.set(db.collection('membresias').doc(id),pubOf(d));
@@ -862,6 +887,7 @@ function saveSocioDoc(id,d,isNew){
 function deleteSocio(m){
   const b=db.batch();
   b.delete(db.collection('socios').doc(m.id));b.delete(db.collection('membresias').doc(m.id));
+  if(m.correo) b.delete(db.collection('clientes').doc(m.correo));
   m.compras.slice(0,450).forEach(c=>b.delete(db.collection('compras').doc(c.id)));
   return b.commit().catch(fail);
 }
@@ -872,7 +898,8 @@ function renderAdmin(){
   const logged=!!user;
   $('#a-lock').hidden=logged; $('#a-main').hidden=!logged||!ready;
   $('#a-wait').hidden=!(logged&&!ready);
-  if(logged&&!ready){$('#a-wait').innerHTML='<p class="sub" style="margin:0">Cargando socios…</p>';return;}
+  if(logged&&staffKnown&&!isStaffUser){$('#a-wait').innerHTML=`<h2>Acceso del personal</h2><p class="sub">La cuenta <b>${esc(user.email)}</b> no está autorizada como personal de AROM GYM. Si trabajas aquí, pide al dueño que te agregue.</p><button class="btn ghost" type="button" data-act="logout">Usar otra cuenta</button>`;return;}
+  if(logged&&!ready){$('#a-wait').innerHTML='<p class="sub" style="margin:0">'+(staffKnown?'Cargando socios…':'Comprobando acceso…')+'</p>';return;}
   if(!logged) return;
   ['socios','avisos','caja','prods','ajustes'].forEach(t=>$('#at-'+t).setAttribute('aria-selected',t===tab));
   if(tab==='socios'){
@@ -926,7 +953,7 @@ function renderDetail(){
     <div class="panel">
       <div class="sband b-${e.cls}"><span class="label">Membresía</span><b>${e.lab}</b></div>
       <h2 class="dname">${esc(m.nombre+' '+m.apellido)}</h2>
-      <p class="sub" style="margin:0">${m.telefono?'Cel. '+esc(m.telefono):'Sin celular registrado'}</p>
+      <p class="sub" style="margin:0">${m.telefono?'Cel. '+esc(m.telefono):'Sin celular registrado'} · ${m.correo?esc(m.correo)+(A.appUsers.some(u=>u.id===m.correo)?' <span class="st ok">Usa la app</span>':''):'Sin Gmail'}</p>
       ${datesBlock(m,e)}
       <div class="actions"><button class="btn" type="button" data-act="renew">Renovar</button><button class="btn ghost" type="button" data-act="edit">Editar datos</button><button class="btn ghost" type="button" data-act="askdel">Eliminar</button></div>
       <div class="inbox" id="renewbox" hidden>
@@ -980,6 +1007,7 @@ function renderForm(){
       <div class="field"><label for="s-nom">Nombres</label><input type="text" id="s-nom" maxlength="40" value="${esc(m?m.nombre:'')}"></div>
       <div class="field"><label for="s-ape">Apellidos</label><input type="text" id="s-ape" maxlength="50" value="${esc(m?m.apellido:'')}"></div>
       <div class="field"><label for="s-tel">Celular (para avisos por WhatsApp)</label><input type="text" id="s-tel" inputmode="tel" maxlength="15" value="${esc(m?m.telefono:'')}"></div>
+      <div class="field"><label for="s-mail">Gmail (para ver su membresía en la app)</label><input type="email" id="s-mail" inputmode="email" maxlength="80" placeholder="cliente@gmail.com" value="${esc(m&&m.correo?m.correo:'')}"></div>
       <div class="field"><label for="s-plan">Duración (calcula el vencimiento)</label><select id="s-plan">${planOpts(plan)}</select></div>
       <div class="field"><label for="s-ini">Fecha de matrícula</label><input type="date" id="s-ini" value="${ini}"></div>
       <div class="field"><label for="s-fin">Fecha de vencimiento</label><input type="date" id="s-fin" value="${fin}"></div>
@@ -992,16 +1020,19 @@ function renderForm(){
 }
 function saveSocio(){
   const v=id=>$('#'+id).value.trim();
-  const d={nombre:v('s-nom'),apellido:v('s-ape'),telefono:v('s-tel'),plan:v('s-plan'),inicio:v('s-ini'),fin:v('s-fin')};
+  const d={nombre:v('s-nom'),apellido:v('s-ape'),telefono:v('s-tel'),correo:v('s-mail').toLowerCase(),plan:v('s-plan'),inicio:v('s-ini'),fin:v('s-fin')};
+  const old=curId&&getS(curId)?getS(curId).correo||'':'';
   const monto=$('#s-monto')?parseFloat(v('s-monto'))||0:0;
   const err=[];
   if(!d.nombre||!d.apellido) err.push('escribe nombres y apellidos');
   if(!d.inicio||!d.fin) err.push('elige las dos fechas');
   else if(d.fin<=d.inicio) err.push('la fecha de vencimiento debe ser después de la matrícula');
+  if(d.correo&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.correo)) err.push('el correo no es válido');
+  const dup=d.correo&&A.socios.find(x=>x.correo===d.correo&&x.id!==curId); if(dup) err.push('ese correo ya está registrado en '+dup.nombre+' '+dup.apellido);
   if(err.length){$('#serr').textContent='Revisa: '+err.join(', ')+'.';return;}
   const isNew=!curId; const id=curId||db.collection('socios').doc().id;
   curId=id;waitingFor=id;view='detail';
-  saveSocioDoc(id,d,isNew).then(()=>{if(waitingFor===id)waitingFor=null;});
+  saveSocioDoc(id,d,isNew,old).then(()=>{if(waitingFor===id)waitingFor=null;});
   if(isNew&&monto>0) addPago({tipo:'matricula',socioId:id,concepto:'Matrícula '+planName(d.plan)+' · '+d.nombre+' '+d.apellido,monto,medio:v('s-medio')});
   renderAdmin();scrollTo(0,0);
   toast(isNew?'Socio registrado. Ya tiene su código QR.':'Cambios guardados.');
@@ -1046,7 +1077,14 @@ function renderAjustes(){
       <div class="actions" style="margin:0"><button class="btn ghost" type="button" data-act="backup">Descargar copia</button>${own?`<label class="btn ghost" for="restore">Importar copia anterior</label><input type="file" id="restore" accept=".json,application/json" hidden>`:''}</div>
       ${own?'<p class="fine" style="margin-top:8px">“Importar” sube los socios, compras y productos de una copia descargada de la versión anterior de la app.</p>':''}
     </div>
-  </div>`;
+  </div>
+  ${(()=>{const au=[...A.appUsers].sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||''),'es')),ok=au.filter(u=>u.acepta);
+  return `<div class="panel mt"><h2>Clientes en la app</h2>
+    <p class="sub">${au.length} ${au.length===1?'cliente entró':'clientes entraron'} con su Gmail · <b>${ok.length}</b> ${ok.length===1?'acepta':'aceptan'} recibir novedades por correo.</p>
+    <div class="actions" style="margin:0"><button class="btn" type="button" data-act="copymails" ${ok.length?'':'disabled'}>Copiar correos para boletín (${ok.length})</button><button class="btn ghost" type="button" data-act="csvmails" ${au.length?'':'disabled'}>Descargar lista</button></div>
+    <p class="fine" style="margin-top:8px">Pega los correos en el campo <b>CCO</b> (copia oculta) de Gmail, así nadie ve los correos de los demás. Solo se copian los clientes que aceptaron.</p>
+    <ul class="buys mt">${au.length?au.slice(0,100).map(u=>`<li class="c3"><span>${esc(u.nombre||'Sin nombre')}<small class="sm2">${esc(u.id)}</small></span>${u.acepta?'<span class="st ok">Acepta</span>':'<span class="fine">No acepta</span>'}<span></span></li>`).join(''):'<li class="empty">Aún ningún cliente ha entrado a la app con Google.</li>'}</ul>
+  </div>`;})()}`;
 }
 
 
@@ -1215,7 +1253,7 @@ VA.addEventListener('click',e=>{
     case 'askdel': $('#delbox').hidden=false;$('#renewbox').hidden=true;break;
     case 'cancelbox': $('#renewbox').hidden=true;$('#delbox').hidden=true;break;
     case 'dorenew': {const plan=$('#r-plan').value,monto=parseFloat($('#r-monto').value)||0;const d=Object.assign({},m,renewDates(m,plan),{plan});delete d.compras;delete d.id;
-      saveSocioDoc(m.id,d,false);if(monto>0)addPago({tipo:'renovacion',socioId:m.id,concepto:'Renovación '+planName(plan)+' · '+m.nombre+' '+m.apellido,monto,medio:$('#r-medio').value});
+      saveSocioDoc(m.id,d,false,m.correo);if(monto>0)addPago({tipo:'renovacion',socioId:m.id,concepto:'Renovación '+planName(plan)+' · '+m.nombre+' '+m.apellido,monto,medio:$('#r-medio').value});
       toast('Renovado hasta el '+fmt(d.fin)+(monto>0?'. Cobro registrado en caja.':'.'));break;}
     case 'dodel': deleteSocio(m);view='list';curId=null;renderAdmin();toast('Socio eliminado.');break;
     case 'dlqr': downloadQR(m);break;
@@ -1225,6 +1263,10 @@ VA.addEventListener('click',e=>{
     case 'seedprod': {const bt=db.batch();SUGERIDOS.forEach(s=>bt.set(db.collection('productos').doc(),{nombre:s[0],precio:s[1]}));bt.commit().catch(fail);toast('Productos cargados. Ajusta los precios a los tuyos.');break;}
     case 'delstaff': db.collection('personal').doc(b.dataset.id).delete().then(()=>toast('Acceso quitado.'),fail);break;
     case 'backup': backup();break;
+    case 'copymails': {const t=A.appUsers.filter(u=>u.acepta).map(u=>u.id).join(', ');try{navigator.clipboard.writeText(t).then(()=>toast('Correos copiados. Pégalos en CCO de Gmail.'),()=>toast('No se pudo copiar.'));}catch(e){toast('No se pudo copiar.');}break;}
+    case 'csvmails': {const rows=[['nombre','correo','acepta_novedades']].concat(A.appUsers.map(u=>[u.nombre||'',u.id,u.acepta?'si':'no']));
+      const csv='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');
+      const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));download(url,'clientes-arom-gym.csv');setTimeout(()=>URL.revokeObjectURL(url),4000);break;}
     case 'cprev': case 'cnext': {const d=parse(cajaDia||iso(today()));d.setDate(d.getDate()+(b.dataset.act==='cprev'?-1:1));cajaDia=iso(d)>iso(today())?iso(today()):iso(d);renderCaja();break;}
     case 'delmov': if(b.dataset.armed){db.collection(b.dataset.col).doc(b.dataset.id).delete().then(()=>toast('Movimiento anulado.'),fail);}else{b.dataset.armed='1';b.textContent='¿?';b.setAttribute('aria-label','Toca otra vez para anular');toast('Toca otra vez la ✕ para anular este movimiento.');setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='×';}},3000);}break;
     case 'resetme': auth.sendPasswordResetEmail(user.email).then(()=>toast('Te enviamos un correo para cambiar tu contraseña.'),()=>toast('No se pudo enviar el correo.'));break;
@@ -1278,6 +1320,84 @@ VA.addEventListener('submit',e=>{
     db.collection('personal').doc(mail).set({agregado:FV()}).then(()=>toast(mail+' ya puede entrar al panel.'),fail);
   }
 });
+
+
+/* ---------- Clientes: entrar con Google y ver su membresía ---------- */
+const VAPP=$('#v-app');
+const GLOGO='<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+const gate=document.createElement('section');gate.id='c-gate';gate.className='panel';
+const memb=document.createElement('section');memb.id='c-memb';memb.className='panel';memb.hidden=true;
+if(VAPP.querySelector('.brand')) VAPP.querySelector('.brand').after(gate);
+if(VAPP.querySelector('.hello')) VAPP.querySelector('.hello').after(memb);
+let pendingNews=null,clientAcepta=false;
+try{const v=sessionStorage.getItem('ag_news');if(v!==null){pendingNews=v==='1';sessionStorage.removeItem('ag_news');}}catch(e){}
+function renderGate(loading){
+  gate.innerHTML=loading?'<p class="sub" style="margin:0">Cargando…</p>':`
+    <h2>Bienvenido a AROM GYM</h2>
+    <p class="sub">Entra con tu cuenta de Google para ver tu membresía y armar tu plan de entrenamiento.</p>
+    <label class="chk"><input type="checkbox" id="c-news"> Quiero recibir novedades, promociones y consejos de AROM GYM en mi correo.</label>
+    <button class="btn gbtn" type="button" id="c-google">${GLOGO}<span>Continuar con Google</span></button>
+    <p class="err" id="c-err" role="alert"></p>
+    <p class="fine">Si abriste este enlace desde WhatsApp o Instagram y no te deja entrar, ábrelo en Chrome o Safari.</p>
+    <p class="staff"><a href="#personal">Acceso del personal</a></p>`;
+}
+if(auth){VAPP.classList.add('gated');renderGate(true);auth.getRedirectResult().catch(e=>{const el=$('#c-err');if(el)el.textContent=gErr(e);});}
+const gErr=e=>e&&e.code==='auth/unauthorized-domain'?'Falta autorizar este sitio en Firebase (Dominios autorizados).':e&&e.code==='auth/operation-not-allowed'?'El acceso con Google aún no está activado en Firebase.':'No se pudo entrar con Google. Inténtalo otra vez.';
+gate.addEventListener('click',e=>{
+  if(!e.target.closest('#c-google')) return;
+  pendingNews=!!($('#c-news')&&$('#c-news').checked);$('#c-err').textContent='';
+  const pr=new firebase.auth.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});
+  auth.signInWithPopup(pr).catch(err=>{
+    if(err.code==='auth/popup-blocked'||err.code==='auth/operation-not-supported-in-this-environment'){try{sessionStorage.setItem('ag_news',pendingNews?'1':'0');}catch(x){}auth.signInWithRedirect(pr);}
+    else if(err.code!=='auth/popup-closed-by-user'&&err.code!=='auth/cancelled-popup-request') $('#c-err').textContent=gErr(err);
+  });
+});
+async function registerAppUser(u){
+  const mail=String(u.email||'').toLowerCase(),ref=db.collection('usuarios_app').doc(mail);
+  const data={nombre:u.displayName||'',ultimoIngreso:FV()};
+  try{
+    const s=await ref.get();
+    if(pendingNews!==null){data.acepta=pendingNews;data.aceptaFecha=FV();}
+    else if(!s.exists) data.acepta=false;
+    if(!s.exists) data.creado=FV();
+    await ref.set(data,{merge:true});
+    clientAcepta=data.acepta!==undefined?data.acepta:!!(s.exists&&s.data().acepta);
+  }catch(e){console.warn(e);}
+  pendingNews=null;
+}
+async function loadMemb(u){
+  memb.innerHTML='<p class="sub" style="margin:0">Buscando tu membresía…</p>';
+  const mail=String(u.email||'').toLowerCase();let m=null;
+  try{const c=await db.collection('clientes').doc(mail).get();
+    if(c.exists){const s=await db.collection('membresias').doc(c.data().socioId).get();if(s.exists){const d=s.data();m={nombre:d.n,apellido:'',plan:d.p,inicio:d.s,fin:d.e};}}}catch(e){}
+  if(user!==u) return;
+  paintMemb(u,m);
+}
+function paintMemb(u,m){
+  const foot=`<div class="cfoot"><label class="chk sm"><input type="checkbox" id="c-news2" ${clientAcepta?'checked':''}> Recibir novedades de AROM GYM por correo</label><span class="fine">${esc(u.email)} · <button type="button" class="linkbtn" id="c-out">Cerrar sesión</button></span></div>`;
+  if(!m){memb.innerHTML=`<div class="label">Mi membresía</div><h2 class="mt0">Aún no está vinculada</h2><p class="sub">No encontramos una membresía con el correo <b>${esc(u.email)}</b>. Pide en recepción que registren este Gmail en tu ficha de socio y vuelve a abrir la app.</p>`+foot;return;}
+  const e=estado(m),t=e.k==='venc'?['Venció hace',dias(-e.left)]:e.k==='pend'?['Empieza','pronto']:['Te quedan',dias(e.left)];
+  const msg=e.k==='venc'?'Tu membresía venció. Acércate a recepción para renovar.':e.k==='pron'?(e.left===0?'Tu membresía vence hoy. Renueva para seguir entrenando.':'Te quedan '+dias(e.left)+'. Renueva a tiempo para no perder días.'):e.k==='pend'?'Tu membresía todavía no empieza.':'Estás al día. ¡A entrenar!';
+  memb.innerHTML=`<div class="sband b-${e.cls}"><span class="label">Mi membresía</span><b>${e.lab}</b></div>
+    <div class="dates"><div><span class="label">Inscripción</span><b>${fmt(m.inicio)}</b></div><div><span class="label">Vence</span><b>${fmt(m.fin)}</b></div><div><span class="label">${t[0]}</span><b>${t[1]}</b></div></div>
+    <div class="prog"><i style="width:${e.pct}%;background:${barCol(e.cls)}"></i></div>
+    <p class="fine" style="margin-top:8px">${msg}</p>`+foot;
+}
+memb.addEventListener('click',e=>{if(e.target.closest('#c-out'))auth.signOut();});
+memb.addEventListener('change',e=>{
+  if(e.target.id!=='c-news2'||!user) return;
+  clientAcepta=e.target.checked;
+  db.collection('usuarios_app').doc(String(user.email).toLowerCase()).set({acepta:clientAcepta,aceptaFecha:FV()},{merge:true})
+    .then(()=>toast(clientAcepta?'Listo, te enviaremos novedades.':'Ya no recibirás novedades por correo.'),fail);
+});
+function clientState(u){
+  if(!auth) return;
+  if(!u){VAPP.classList.add('gated');renderGate(false);memb.hidden=true;return;}
+  VAPP.classList.remove('gated');memb.hidden=false;
+  const google=(u.providerData||[]).some(p=>p.providerId==='google.com');
+  (google?registerAppUser(u):Promise.resolve()).then(()=>loadMemb(u));
+  if(google) window.dispatchEvent(new CustomEvent('aromgym:cliente',{detail:{nombre:u.displayName||''}}));
+}
 
 /* ---------- Navegación ---------- */
 function route(){
