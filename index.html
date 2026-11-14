@@ -1192,9 +1192,8 @@ function paintSocio(m,staff){
     <h1>${esc((m.nombre+' '+(m.apellido||'')).trim())}</h1>
     <p class="sub">Plan ${planName(m.plan)}</p>
     ${datesBlock(m,e)}
-    <div class="actions"><button class="btn ${staff?'':'ghost'}" type="button" data-act="sopen" data-id="${m.id}">${staff?'Ver ficha y registrar compra':'Soy del personal'}</button></div>
-  </div>
-  <p class="center"><a class="link" href="#plan=${encodeURIComponent((m.nombre+' '+(m.apellido||'')).trim())}">Abrir mi plan de entrenamiento</a></p>`;
+    ${staff?`<div class="actions"><button class="btn" type="button" data-act="sopen" data-id="${m.id}">Ver ficha y registrar compra</button></div>`:''}
+  </div>`;
 }
 $('#v-socio').addEventListener('click',e=>{const b=e.target.closest('[data-act="sopen"]');if(!b)return;
   if(user){tab='socios';view='detail';curId=b.dataset.id;}else pendingOpen=b.dataset.id;
