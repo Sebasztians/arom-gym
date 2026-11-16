@@ -278,6 +278,40 @@ label.btn{display:inline-flex;align-items:center}
 .cqr b{font-family:var(--display);font-size:20px;text-transform:uppercase;letter-spacing:.02em}
 @media (max-width:520px){.cqr{flex-direction:column;text-align:center}.cqr .qr{width:min(260px,100%)}}
 #psum .kv{margin-top:4px}
+
+.orline{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;margin:16px 0}
+.orline::before,.orline::after{content:"";flex:1;height:1px;background:var(--line)}
+
+.tblwrap{overflow-x:auto;margin-top:8px}
+table.inv{width:100%;border-collapse:collapse;font-size:14px;min-width:620px}
+table.inv th{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.inv td{padding:10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.inv th:first-child,table.inv td:first-child{text-align:left;white-space:normal}
+.cntlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px 16px}
+.cntrow{display:grid;grid-template-columns:minmax(0,1fr) 90px;gap:10px;align-items:center;font-size:14px}
+.cntrow input{min-height:40px;padding:8px 10px;text-align:right}
+table.inv td:first-child{min-width:150px}
+
+.addline{display:grid;grid-template-columns:minmax(0,1fr) 80px auto;gap:10px;align-items:end;margin-bottom:12px}
+.cart{border-top:1px solid var(--line)}
+.buys li.kline{grid-template-columns:minmax(0,1fr) auto auto 32px}
+.qty{display:inline-flex;align-items:center;gap:6px}
+.qty b{min-width:22px;text-align:center}
+.qty .xdel{border-color:var(--line);color:var(--ink)}
+.ktotal{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 0}
+.ktotal span{color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:13px}
+.ktotal b{font-family:var(--display);font-size:30px;color:var(--accent)}
+@media (max-width:480px){.addline{grid-template-columns:1fr 70px}.addline .btn{grid-column:1/-1}}
+
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.cat2{min-width:640px;display:flex;flex-direction:column;gap:8px}
+.cat2h,.cat2r{display:grid;grid-template-columns:minmax(150px,1fr) 96px 96px 130px 80px 32px;gap:8px;align-items:center}
+.cat2h span{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cat2r input{min-height:40px;padding:8px 10px}
+.cat2r.add{margin-top:6px;padding-top:12px;border-top:1px solid var(--line)}
+.marg{font-size:13px;color:var(--muted)}
+.marg.pos{color:var(--ok);font-weight:600}
+.marg.neg{color:var(--bad);font-weight:600}
 </style>
 </head>
 <body>
@@ -388,13 +422,16 @@ label.btn{display:inline-flex;align-items:center}
   <header class="brand"><img class="logo js-logo" alt=""><span class="word">AROM GYM</span><span class="tag">Personal</span><span class="grow"></span><a class="btn ghost sm" href="#">Ir a la app</a></header>
   <section id="a-lock" class="panel lock" hidden>
     <h2>Acceso del personal</h2>
-    <p class="sub">Entra con el correo y la contraseña que te dio el dueño del gimnasio.</p>
+    <p class="sub">Entra con tu cuenta de Google o con el correo y la contraseña que te dio el dueño del gimnasio.</p>
     <form id="lockf" class="form" novalidate>
       <div class="field full"><label for="l-mail">Correo</label><input type="email" id="l-mail" autocomplete="username" inputmode="email"></div>
       <div class="field full"><label for="l-pass">Contraseña</label><input type="password" id="l-pass" autocomplete="current-password"></div>
       <p class="err full" id="pinerr" role="alert"></p>
       <div class="full actions" style="margin:0"><button class="btn" type="submit" id="l-btn">Entrar</button><button class="btn ghost" type="button" data-act="forgot">Olvidé mi contraseña</button></div>
     </form>
+    <div class="orline"><span>o</span></div>
+    <button class="btn gbtn" type="button" data-act="staffgoogle" id="l-google">Entrar con Google</button>
+    <p class="fine" style="margin-top:10px">Si tu correo es Gmail, usa “Entrar con Google”: no necesitas contraseña.</p>
   </section>
   <section id="a-wait" class="panel lock"><p class="sub" style="margin:0">Conectando con AROM GYM…</p></section>
   <section id="a-main" hidden>
@@ -402,6 +439,7 @@ label.btn{display:inline-flex;align-items:center}
       <button role="tab" type="button" data-at="socios" id="at-socios">Socios</button>
       <button role="tab" type="button" data-at="avisos" id="at-avisos">Avisos</button>
       <button role="tab" type="button" data-at="caja" id="at-caja">Caja</button>
+      <button role="tab" type="button" data-at="inv" id="at-inv">Inventario</button>
       <button role="tab" type="button" data-at="prods" id="at-prods">Productos</button>
       <button role="tab" type="button" data-at="ajustes" id="at-ajustes">Ajustes</button>
     </div></nav>
@@ -815,10 +853,11 @@ try{firebase.initializeApp(FB_CONFIG);db=firebase.firestore();auth=firebase.auth
 const VA=$('#v-admin');
 if(!db){$('#a-wait').innerHTML='<p class="sub" style="margin:0">No se pudo conectar. Revisa tu conexión a internet y recarga la página.</p>';}
 const FV=()=>firebase.firestore.FieldValue.serverTimestamp();
+const INC=n=>firebase.firestore.FieldValue.increment(n);
 const fail=e=>{console.error(e);toast(e&&e.code==='permission-denied'?'Tu cuenta no tiene permiso para hacer esto.':'No se pudo guardar. Revisa tu conexión e inténtalo otra vez.');};
 
 let user=null,ready=false,unsub=[],raw={socios:null,compras:null,productos:null,personal:null,pagos:null};
-let A={socios:[],productos:[],personal:[],pagos:[],compras:[],appUsers:[]};
+let A={socios:[],productos:[],personal:[],pagos:[],compras:[],appUsers:[],inv:{}};
 const isOwner=()=>!!user&&String(user.email||'').toLowerCase()===OWNER;
 const getS=id=>A.socios.find(m=>m.id===id);
 let tab='socios',view='list',curId=null,filt='todos',q='',pendingOpen=null,waitingFor=null;
@@ -847,6 +886,7 @@ function listen(){
   const snap=(col,key)=>db.collection(col).onSnapshot(s=>{raw[key]=s.docs.map(d=>Object.assign({id:d.id},d.data()));rebuild();},err=>{
     if(err.code==='permission-denied'){denied();}else{console.error(err);toast('Se perdió la conexión. Recarga la página.');}});
   unsub=[snap('socios','socios'),snap('compras','compras'),snap('productos','productos'),snap('personal','personal'),snap('pagos','pagos'),
+    db.collection('inventario').onSnapshot(q=>{const o={};q.docs.forEach(d=>o[d.id]=d.data());A.inv=o;if(ready)scheduleRender();},()=>{A.inv={};}),
     db.collection('usuarios_app').onSnapshot(q=>{A.appUsers=q.docs.map(d=>Object.assign({id:d.id},d.data()));if(ready)scheduleRender();},()=>{A.appUsers=[];})];
 }
 function stopListen(){unsub.forEach(u=>{try{u();}catch(e){}});unsub=[];raw={socios:null,compras:null,productos:null,personal:null,pagos:null};ready=false;}
@@ -897,7 +937,7 @@ function qrSvg(text){
   return `<svg viewBox="0 0 ${n+2*M} ${n+2*M}" shape-rendering="crispEdges" role="img" aria-label="Código QR del socio"><rect width="${n+2*M}" height="${n+2*M}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
 }
 function topOf(list){
-  const g={};list.forEach(b=>{const k=b.pid||b.nombre;g[k]=g[k]||{nombre:b.nombre,cant:0,monto:0};g[k].cant+=b.cant;g[k].monto+=b.precio*b.cant;});
+  const g={};list.forEach(b=>{const k=b.pid||b.nombre;g[k]=g[k]||{nombre:b.nombre,cant:0,monto:0,gan:0};g[k].cant+=b.cant;g[k].monto+=b.precio*b.cant;const x=gan(b);if(x==null||g[k].gan==null)g[k].gan=null;else g[k].gan+=x;});
   return Object.values(g).sort((a,b)=>b.cant-a.cant||b.monto-a.monto);
 }
 
@@ -929,15 +969,17 @@ function renderAdmin(){
   if(logged&&staffKnown&&!isStaffUser){$('#a-wait').innerHTML=`<h2>Acceso del personal</h2><p class="sub">La cuenta <b>${esc(user.email)}</b> no está autorizada como personal de AROM GYM. Si trabajas aquí, pide al dueño que te agregue.</p><button class="btn ghost" type="button" data-act="logout">Usar otra cuenta</button>`;return;}
   if(logged&&!ready){$('#a-wait').innerHTML='<p class="sub" style="margin:0">'+(staffKnown?'Cargando socios…':'Comprobando acceso…')+'</p>';return;}
   if(!logged) return;
-  ['socios','avisos','caja','prods','ajustes'].forEach(t=>$('#at-'+t).setAttribute('aria-selected',t===tab));
+  ['socios','avisos','caja','inv','prods','ajustes'].forEach(t=>$('#at-'+t).setAttribute('aria-selected',t===tab));
   if(tab==='socios'){
     if(view==='detail'&&getS(curId)) renderDetail();
     else if(view==='detail'&&waitingFor===curId) $('#a-body').innerHTML='<p class="sub">Guardando…</p>';
     else if(view==='form') renderForm();
     else {view='list';renderSocios();}
-  } else if(tab==='avisos') renderAvisos(); else if(tab==='caja') renderCaja(); else if(tab==='prods') renderProds(); else renderAjustes();
+  } else if(tab==='avisos') renderAvisos(); else if(tab==='caja') renderCaja(); else if(tab==='inv') renderInv(); else if(tab==='prods') renderProds(); else renderAjustes();
   const nav=A.socios.filter(m=>{const k=estado(m).k;return (k==='pron'||(k==='venc'&&estado(m).left>=-30))&&m.ultimoAviso!==m.fin;}).length;
   $('#at-avisos').innerHTML='Avisos'+(nav?` <span class="badge">${nav}</span>`:'');
+  const low=A.productos.filter(isLow).length;
+  $('#at-inv').innerHTML='Inventario'+(low?` <span class="badge">${low}</span>`:'');
 }
 
 function renderSocios(){
@@ -1011,12 +1053,12 @@ function renderDetail(){
       <div class="stat"><b>${buys[0]?fmtShort(buys[0].fecha):'—'}</b><small>Última compra</small></div>
     </div>
     ${A.productos.length?`<form id="buyf" class="buyrow" novalidate>
-      <div class="field f-prod"><label for="b-prod">Producto</label><select id="b-prod">${A.productos.map(p=>`<option value="${p.id}">${esc(p.nombre)} · ${soles(p.precio)}</option>`).join('')}</select></div>
+      <div class="field f-prod"><label for="b-prod">Producto</label><select id="b-prod">${prodOpts()}</select></div>
       <div class="field"><label for="b-cant">Cantidad</label><input type="number" id="b-cant" value="1" min="1" max="99" inputmode="numeric"></div>
       <div class="field"><label for="b-medio">Pago</label><select id="b-medio">${medioOpts()}</select></div>
       <button class="btn" type="submit">Registrar compra</button>
     </form>`:`<p class="sub mt">Para registrar compras, primero agrega tus productos en la pestaña <b>Productos</b>.</p>`}
-    <ul class="buys">${buys.length?buys.map(b=>`<li><span class="dt">${fmtShort(b.fecha)}</span><span>${esc(b.nombre)}${b.cant>1?' × '+b.cant:''}</span><b>${soles(b.precio*b.cant)}</b><button type="button" class="xdel" data-act="delbuy" data-id="${b.id}" aria-label="Quitar compra">×</button></li>`).join(''):'<li class="empty">Aún no tiene compras registradas.</li>'}</ul>
+    <ul class="buys">${buys.length?buys.map(b=>`<li><span class="dt">${fmtShort(b.fecha)}</span><span>${esc(b.nombre)}${b.cant>1?' × '+b.cant:''}<small class="sm2">${MEDIOS[b.medio]||'Efectivo'}${b.hora?' · '+esc(b.hora):''}</small></span><b>${soles(b.precio*b.cant)}</b><button type="button" class="xdel" data-act="delbuy" data-id="${b.id}" aria-label="Anular compra">×</button></li>`).join(''):'<li class="empty">Aún no tiene compras registradas.</li>'}</ul>
     ${(()=>{const ps=A.pagos.filter(x=>x.socioId===m.id).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));return ps.length?`<h3 class="h3s">Pagos de membresía</h3><ul class="buys">${ps.map(x=>`<li><span class="dt">${fmtShort(x.fecha)}</span><span>${esc(x.concepto)} · ${MEDIOS[x.medio]||''}</span><b>${soles(x.monto)}</b><span></span></li>`).join('')}</ul>`:'';})()}
   </div>`;
 }
@@ -1158,8 +1200,8 @@ function renderCaja(){
   const d=cajaDia||iso(today()), isHoy=d===iso(today());
   const movs=[
     ...A.pagos.filter(x=>x.fecha===d).map(x=>({id:x.id,col:'pagos',hora:x.hora||'',concepto:x.concepto,tipo:x.tipo,monto:+x.monto||0,medio:x.medio})),
-    ...A.compras.filter(x=>x.fecha===d).map(x=>{const s=getS(x.socioId);return {id:x.id,col:'compras',hora:x.hora||'',concepto:x.nombre+(x.cant>1?' × '+x.cant:'')+(s?' · '+s.nombre+' '+s.apellido:''),tipo:'producto',monto:x.precio*x.cant,medio:x.medio||'efe'};})
-  ].sort((a,b)=>b.hora.localeCompare(a.hora));
+    ...ventasAgrupadas(d).map(g=>{const s=getS(g.socioId);return {id:g.ids.join(','),col:'compras',hora:g.hora,concepto:g.items.map(x=>x.nombre+(x.cant>1?' × '+x.cant:'')).join(', ')+' · '+(s?socName(s):g.cliente||'Sin socio'),tipo:'producto',monto:g.monto,medio:g.medio};})
+  ].sort((a,b)=>String(b.hora).localeCompare(String(a.hora)));
   const sum=f=>movs.filter(f).reduce((a,b)=>a+b.monto,0);
   const tot=sum(()=>true),efe=sum(x=>x.medio==='efe'),yap=sum(x=>x.medio==='yap');
   const memb=sum(x=>x.tipo==='matricula'||x.tipo==='renovacion'),prod=sum(x=>x.tipo==='producto'),otro=sum(x=>x.tipo==='otro');
@@ -1172,20 +1214,171 @@ function renderCaja(){
     <div class="stat"><b>${soles(yap)}</b><small>Yape / Plin</small></div>
     <div class="stat"><b>${movs.length}</b><small>Movimientos</small></div>
   </div>
-  <div class="grid2 mt">
+  ${isHoy?`<div class="grid2 mt">${cartForm()}${otroForm(isHoy)}</div>`:''}
+  <div class="mt">
     <div class="panel"><h2>Movimientos</h2>
       <div class="pills mt0"><span class="pill">Membresías <b>${soles(memb)}</b></span><span class="pill">Productos <b>${soles(prod)}</b></span><span class="pill">Otros <b>${soles(otro)}</b></span></div>
       <ul class="buys cash">${movs.length?movs.map(x=>`<li><span class="dt">${esc(x.hora)}</span><span>${esc(x.concepto)}<small class="sm2">${tipoLab[x.tipo]||''} · ${MEDIOS[x.medio]||''}</small></span><b>${soles(x.monto)}</b><button type="button" class="xdel" data-act="delmov" data-col="${x.col}" data-id="${x.id}" aria-label="Anular movimiento">×</button></li>`).join(''):'<li class="empty">No hay cobros registrados este día.</li>'}</ul>
     </div>
-    <form class="panel" id="otrof" novalidate><h2>Otro ingreso</h2><p class="sub">Para cobros que no son de un socio: pase diario, clase suelta, etc. Las matrículas, renovaciones y productos se suman solos.</p>
+  </div>`;
+  renderCart();
+}
+const otroForm=isHoy=>`<form class="panel" id="otrof" novalidate><h2>Otro ingreso</h2><p class="sub">Para cobros que no son productos ni membresías: pase diario, clase suelta, etc.</p>
       <div class="form">
         <div class="field full"><label for="o-con">Concepto</label><input type="text" id="o-con" maxlength="60" placeholder="Ej.: Pase diario"></div>
         <div class="field"><label for="o-mon">Monto (S/)</label><input type="number" id="o-mon" min="0" step="0.5" inputmode="decimal"></div>
         <div class="field"><label for="o-med">Medio de pago</label><select id="o-med">${medioOpts()}</select></div>
-        <div class="full"><button class="btn" type="submit">Registrar ingreso${isHoy?'':' en este día'}</button></div>
+        <div class="full"><button class="btn ghost" type="submit">Registrar ingreso${isHoy?'':' en este día'}</button></div>
       </div>
-    </form>
+    </form>`;
+
+/* ---------- Venta de varios productos (carrito) ---------- */
+let cart=[],cartMedio='efe',cartCli='';
+const socName=m=>(m.nombre+' '+m.apellido).trim();
+const findSocByName=t=>{const k=t.trim().toLowerCase();return k?A.socios.find(m=>socName(m).toLowerCase()===k):null;};
+function ventasAgrupadas(d){
+  const g={};A.compras.filter(x=>x.fecha===d).forEach(x=>{const k=x.ventaId||x.id;
+    if(!g[k])g[k]={ids:[],items:[],monto:0,hora:x.hora||'',medio:x.medio||'efe',socioId:x.socioId||'',cliente:x.cliente||''};
+    g[k].ids.push(x.id);g[k].items.push(x);g[k].monto+=x.precio*x.cant;});
+  return Object.values(g);
+}
+function cartForm(){
+  if(!A.productos.length) return '<div class="panel"><h2>Registrar venta</h2><p class="sub" style="margin:0">Primero agrega tus productos en la pestaña <b>Productos</b>.</p></div>';
+  return `<form class="panel" id="cartf" novalidate><h2>Registrar venta</h2><p class="sub">Agrega uno o varios productos, elige la forma de pago y cobra. El stock se descuenta solo.</p>
+    <div class="addline"><div class="field"><label for="k-prod">Producto</label><select id="k-prod">${prodOpts()}</select></div>
+      <div class="field"><label for="k-cant">Cant.</label><input type="number" id="k-cant" value="1" min="1" max="99" inputmode="numeric"></div>
+      <button type="button" class="btn ghost" data-act="kadd">+ Agregar</button></div>
+    <ul class="buys cart" id="k-lines"></ul>
+    <div class="ktotal"><span>Total</span><b id="k-total">S/ 0.00</b></div>
+    <div class="form mt">
+      <div class="field"><label for="k-medio">Forma de pago</label><select id="k-medio">${Object.keys(MEDIOS).map(k=>`<option value="${k}" ${k===cartMedio?'selected':''}>${MEDIOS[k]}</option>`).join('')}</select></div>
+      <div class="field"><label for="k-cli">Cliente</label><input type="text" id="k-cli" list="k-socios" maxlength="60" autocomplete="off" placeholder="Escribe un nombre o elige un socio" value="${esc(cartCli)}">
+        <datalist id="k-socios">${[...A.socios].sort((a,b)=>socName(a).localeCompare(socName(b),'es')).map(m=>`<option value="${esc(socName(m))}"></option>`).join('')}</datalist>
+        <small class="sm2" id="k-clihint"></small></div>
+      <div class="full"><button class="btn" type="submit" id="k-pay" disabled>Cobrar</button></div>
+    </div></form>`;
+}
+function renderCart(){
+  const ul=$('#k-lines'); if(!ul) return;
+  cart=cart.filter(l=>A.productos.some(p=>p.id===l.pid));
+  let tot=0;
+  ul.innerHTML=cart.length?cart.map((l,i)=>{const p=A.productos.find(x=>x.id===l.pid),sub=p.precio*l.cant;tot+=sub;
+    return `<li class="kline"><span>${esc(p.nombre)}<small class="sm2">${soles(p.precio)} c/u</small></span>
+      <span class="qty"><button type="button" class="xdel" data-act="kminus" data-i="${i}" aria-label="Quitar uno">−</button><b>${l.cant}</b><button type="button" class="xdel" data-act="kplus" data-i="${i}" aria-label="Sumar uno">+</button></span>
+      <b>${soles(sub)}</b><button type="button" class="xdel" data-act="kdel" data-i="${i}" aria-label="Quitar ${esc(p.nombre)}">×</button></li>`;}).join('')
+    :'<li class="empty">Aún no agregaste productos.</li>';
+  $('#k-total').textContent=soles(tot);
+  cliHint();
+  const pay=$('#k-pay');pay.disabled=!cart.length;pay.textContent=cart.length?'Cobrar '+soles(tot):'Cobrar';
+}
+function cartAdd(pid,c){
+  const p=A.productos.find(x=>x.id===pid);
+  if(!p||!(c>=1&&c<=99)){toast('Elige un producto y una cantidad de 1 a 99.');return;}
+  const l=cart.find(x=>x.pid===pid),total=(l?l.cant:0)+c;
+  if(tracked(p)&&total>p.stock){toast(p.stock>0?'Solo quedan '+p.stock+' de '+p.nombre+'.':p.nombre+' está agotado.');return;}
+  if(l)l.cant=total;else cart.push({pid,cant:c});
+  renderCart();
+}
+function cartPay(){
+  if(!cart.length){toast('Agrega al menos un producto.');return;}
+  for(const l of cart){const p=A.productos.find(x=>x.id===l.pid);if(tracked(p)&&l.cant>p.stock){toast('Solo quedan '+p.stock+' de '+p.nombre+'. Ajusta la cantidad.');return;}}
+  const soc=findSocByName(cartCli),socioId=soc?soc.id:'',cliente=soc?'':cartCli.trim();
+  const b=db.batch(),ventaId=db.collection('compras').doc().id,h=hhmm(),f=iso(today());let tot=0,n=0;
+  cart.forEach(l=>{const p=A.productos.find(x=>x.id===l.pid);tot+=p.precio*l.cant;n+=l.cant;
+    b.set(db.collection('compras').doc(),{ventaId,socioId,cliente,pid:p.id,nombre:p.nombre,precio:p.precio,...(p.costo!=null?{costo:p.costo}:{}),cant:l.cant,fecha:f,hora:h,medio:cartMedio,por:user.email,creado:FV()});
+    if(tracked(p))b.update(db.collection('productos').doc(p.id),{stock:INC(-l.cant)});});
+  b.commit().catch(fail);
+  toast('Venta registrada: '+soles(tot)+' · '+MEDIOS[cartMedio]);
+  cart=[];cartCli='';renderCart();const ks=$('#k-cli');if(ks)ks.value='';cliHint();
+}
+
+
+
+/* ---------- Inventario ---------- */
+const tracked=p=>typeof p.stock==='number';
+const minOf=p=>p.min!=null&&p.min!==''?+p.min:5;
+const isLow=p=>tracked(p)&&p.stock<=minOf(p);
+function gan(b){const c=b.costo!=null?b.costo:(A.productos.find(p=>p.id===b.pid)||{}).costo;return c!=null?(b.precio-c)*b.cant:null;}
+const MOTIVOS={venc:'Vencido',dan:'Dañado o roto',reg:'Regalo / promoción',per:'Consumo del personal',otro:'Otro'};
+const prodOpts=()=>A.productos.map(p=>`<option value="${p.id}" ${tracked(p)&&p.stock<=0?'disabled':''}>${esc(p.nombre)} · ${soles(p.precio)}${tracked(p)?' · quedan '+p.stock:''}</option>`).join('');
+function sell(pid,c,medio,socioId){
+  const p=A.productos.find(x=>x.id===pid);
+  if(!p){toast('Primero agrega productos en la pestaña Productos.');return false;}
+  if(!(c>=1&&c<=99)){toast('Revisa la cantidad (1 a 99).');return false;}
+  if(tracked(p)&&p.stock<c){toast(p.stock>0?'Solo quedan '+p.stock+' de '+p.nombre+'.':p.nombre+' está agotado. Agrega mercadería en Inventario.');return false;}
+  const b=db.batch();
+  b.set(db.collection('compras').doc(),{socioId:socioId||'',pid:p.id,nombre:p.nombre,precio:p.precio,...(p.costo!=null?{costo:p.costo}:{}),cant:c,fecha:iso(today()),hora:hhmm(),medio,por:user.email,creado:FV()});
+  if(tracked(p)) b.update(db.collection('productos').doc(p.id),{stock:INC(-c)});
+  b.commit().catch(fail);
+  toast(p.nombre+(c>1?' × '+c:'')+' vendido · '+MEDIOS[medio]+(tracked(p)?' · quedan '+(p.stock-c):''));
+  return true;
+}
+function delCompra(id){
+  const c=A.compras.find(x=>x.id===id),b=db.batch();
+  b.delete(db.collection('compras').doc(id));
+  const p=c&&A.productos.find(x=>x.id===c.pid);
+  if(p&&tracked(p)) b.update(db.collection('productos').doc(p.id),{stock:INC(c.cant)});
+  return b.commit().catch(fail);
+}
+let invDia=null;
+function renderInv(){
+  const d=invDia||iso(today()),isHoy=d===iso(today()),rec=A.inv[d]||{};
+  const ap=rec.apertura||null,ci=rec.cierre||null,ing=rec.ingresos||{},sal=rec.salidas||{},salLog=rec.salidasLog||[];
+  const ventas=A.compras.filter(x=>x.fecha===d),vend={};ventas.forEach(v=>vend[v.pid]=(vend[v.pid]||0)+v.cant);
+  const prods=A.productos.filter(p=>tracked(p)||(ap&&ap[p.id]!=null)||vend[p.id]||ing[p.id]||sal[p.id]);
+  const estadoDia=ci?['Cerrado','ok']:ap?['Abierto','warn']:['Sin abrir','bad'];
+  const vtot=ventas.reduce((a,b)=>a+b.precio*b.cant,0),un=ventas.reduce((a,b)=>a+b.cant,0),gtot=ventas.reduce((a,b)=>a+(gan(b)||0),0);
+  const perd=salLog.reduce((a,x)=>a+(x.costo!=null?x.costo*x.cant:0),0);
+  const low=A.productos.filter(isLow);
+  const rows=prods.map(p=>{
+    const a=ap&&ap[p.id]!=null?ap[p.id]:null,i=ing[p.id]||0,v=vend[p.id]||0,x=sal[p.id]||0;
+    const esp=a!=null?a+i-v-x:null,c=ci&&ci[p.id]!=null?ci[p.id]:null,dif=c!=null&&esp!=null?c-esp:null;
+    const difc=dif==null?'':dif===0?'<span class="st ok">Cuadra</span>':dif<0?`<span class="st bad">Faltan ${-dif}</span>`:`<span class="st warn">Sobran ${dif}</span>`;
+    return `<tr><td>${esc(p.nombre)}${isHoy&&isLow(p)?' <span class="st warn">Bajo</span>':''}</td><td>${a??'—'}</td><td>${i?'+'+i:'—'}</td><td>${v?'−'+v:'—'}</td><td>${x?'−'+x:'—'}</td><td><b>${esp??'—'}</b></td>${isHoy?`<td>${tracked(p)?p.stock:'—'}</td>`:''}<td>${c??'—'}</td><td>${difc}</td></tr>`;}).join('');
+  const countForm=(id,title,sub,btn,val)=>`<form class="panel" id="${id}" novalidate><h2>${title}</h2><p class="sub">${sub}</p>
+    <div class="cntlist">${A.productos.map(p=>`<label class="cntrow"><span>${esc(p.nombre)}</span><input type="number" min="0" step="1" inputmode="numeric" data-cnt="${p.id}" value="${val(p)}" aria-label="Cantidad de ${esc(p.nombre)}"></label>`).join('')}</div>
+    <p class="fine">Deja vacío lo que no quieras controlar (por ejemplo, un servicio como el alquiler de toalla).</p>
+    <div class="actions"><button class="btn" type="submit">${btn}</button></div></form>`;
+  let acciones='';
+  if(isHoy){
+    if(!A.productos.length) acciones='<div class="panel"><p class="sub" style="margin:0">Primero agrega tus productos en la pestaña <b>Productos</b>.</p></div>';
+    else if(!ap) acciones=countForm('openf','Abrir el día','Cuenta cuánto hay de cada producto ahora y escríbelo. Ese será el stock de inicio del día.','Abrir día con este stock',p=>tracked(p)?p.stock:'');
+    else if(!ci) acciones=`<div class="grid2">
+      ${cartForm()}
+      <div class="stack">
+      <form class="panel" id="mercf" novalidate><h2>Agregar mercadería</h2><p class="sub">Cuando llegue un pedido, súmalo aquí y se agrega al stock.</p>
+        <div class="form"><div class="field full"><label for="m-prod">Producto</label><select id="m-prod">${A.productos.map(p=>`<option value="${p.id}">${esc(p.nombre)}${tracked(p)?' · hay '+p.stock:''}</option>`).join('')}</select></div>
+        <div class="field full"><label for="m-cant">Cantidad que llegó</label><input type="number" id="m-cant" min="1" max="9999" inputmode="numeric" placeholder="Ej.: 24"></div>
+        <div class="full"><button class="btn ghost" type="submit">Sumar al stock</button></div></div></form>
+      <form class="panel" id="salf" novalidate><h2>Registrar salida</h2><p class="sub">Productos que salen sin venderse: vencidos, rotos, regalos o consumo del personal.</p>
+        <div class="form"><div class="field full"><label for="x-prod">Producto</label><select id="x-prod">${A.productos.map(p=>`<option value="${p.id}">${esc(p.nombre)}${tracked(p)?' · hay '+p.stock:''}</option>`).join('')}</select></div>
+        <div class="field"><label for="x-cant">Cantidad</label><input type="number" id="x-cant" min="1" max="999" inputmode="numeric"></div>
+        <div class="field"><label for="x-mot">Motivo</label><select id="x-mot">${Object.keys(MOTIVOS).map(k=>`<option value="${k}">${MOTIVOS[k]}</option>`).join('')}</select></div>
+        <div class="field full"><label for="x-nota">Detalle (opcional)</label><input type="text" id="x-nota" maxlength="80" placeholder="Ej.: se cayó la caja, promo de aniversario"></div>
+        <div class="full"><button class="btn ghost" type="submit">Registrar salida</button></div></div></form>
+      </div>
+    </div>`+countForm('closef','Cerrar el día','Al terminar, cuenta cuánto quedó de cada producto. La app lo compara con lo que debería haber.','Cerrar día',p=>tracked(p)?p.stock:'');
+    else acciones=`<div class="panel"><p class="sub" style="margin:0">El día ya está cerrado${rec.cerradoPor?' por '+esc(rec.cerradoPor):''}${rec.cerradoHora?' a las '+esc(rec.cerradoHora):''}. Si te equivocaste al contar, puedes <button type="button" class="linkbtn" data-act="reclose">deshacer el cierre</button> y volver a contar.</p></div>`;
+  }
+  $('#a-body').innerHTML=`
+  <div class="datenav"><button type="button" data-act="iprev" aria-label="Día anterior">‹</button><strong>${isHoy?'Hoy, ':''}${parse(d).toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long'})}</strong><button type="button" data-act="inext" aria-label="Día siguiente" ${isHoy?'disabled':''}>›</button></div>
+  <div class="stats" style="margin-top:0">
+    <div class="stat"><b><span class="st ${estadoDia[1]}">${estadoDia[0]}</span></b><small>Estado del día${rec.abiertoHora?' · abrió '+esc(rec.abiertoHora):''}</small></div>
+    <div class="stat"><b>${un}</b><small>Unidades vendidas</small></div>
+    <div class="stat"><b>${soles(vtot)}</b><small>Ventas de productos${A.productos.some(p=>p.costo!=null)?' · ganancia <span style="color:var(--ok)">'+soles(gtot)+'</span>':''}</small></div>
+    <div class="stat"><b style="color:${low.length?'var(--carb)':'inherit'}">${low.length}</b><small>Con stock bajo${low.length?': '+low.slice(0,3).map(p=>esc(p.nombre)).join(', ')+(low.length>3?'…':''):''}</small></div>
+  </div>
+  <div class="panel mt"><h2>Stock del día</h2>
+    ${prods.length?`<div class="tblwrap"><table class="inv"><thead><tr><th>Producto</th><th>Inicio</th><th>Mercadería</th><th>Vendido</th><th>Salidas</th><th>Debería haber</th>${isHoy?'<th>Stock ahora</th>':''}<th>Cierre contado</th><th>Diferencia</th></tr></thead><tbody>${rows}</tbody></table></div>`
+      :`<p class="sub" style="margin:0">${isHoy?'Aún no hay productos con control de stock. Abre el día para registrar cuánto hay.':'No hay registro de inventario para este día.'}</p>`}
+  </div>
+  <div class="mt">${acciones}</div>
+  ${salLog.length?`<div class="panel mt"><h2>Salidas del día</h2><p class="sub">${perd?'Costo de lo que salió sin venderse: <b style="color:var(--bad)">'+soles(perd)+'</b>':'Productos que salieron sin venderse.'}</p>
+    <ul class="buys cash">${[...salLog].sort((a,b)=>String(b.hora).localeCompare(String(a.hora))).map(x=>`<li><span class="dt">${esc(x.hora||'')}</span><span>${esc(x.nombre)}${x.cant>1?' × '+x.cant:''}<small class="sm2">${MOTIVOS[x.motivo]||'Otro'}${x.nota?' · '+esc(x.nota):''}</small></span><b>${x.costo!=null?'−'+soles(x.costo*x.cant):''}</b>${isHoy?`<button type="button" class="xdel" data-act="delsal" data-id="${x.id}" aria-label="Anular salida">×</button>`:'<span></span>'}</li>`).join('')}</ul></div>`:''}
+  <div class="panel mt" id="inv-ventas"><h2>Ventas del día</h2>
+    <ul class="buys cash">${ventas.length?[...ventas].sort((a,b)=>String(b.hora).localeCompare(String(a.hora))).map(v=>{const m=getS(v.socioId);return `<li><span class="dt">${esc(v.hora||'')}</span><span>${esc(v.nombre)}${v.cant>1?' × '+v.cant:''}<small class="sm2">${m?esc(socName(m)):v.cliente?esc(v.cliente):'Sin socio'} · ${MEDIOS[v.medio]||'Efectivo'}</small></span><b>${soles(v.precio*v.cant)}</b>${isHoy?`<button type="button" class="xdel" data-act="delmov" data-col="compras" data-id="${v.id}" aria-label="Anular venta">×</button>`:'<span></span>'}</li>`;}).join(''):'<li class="empty">No hay ventas este día.</li>'}</ul>
   </div>`;
+  renderCart();
 }
 
 /* ---------- Archivos ---------- */
@@ -1286,7 +1479,7 @@ VA.addEventListener('click',e=>{
     case 'dodel': deleteSocio(m);view='list';curId=null;renderAdmin();toast('Socio eliminado.');break;
     case 'dlqr': downloadQR(m);break;
     case 'copy': copyLink();break;
-    case 'delbuy': db.collection('compras').doc(b.dataset.id).delete().catch(fail);break;
+    case 'delbuy': delCompra(b.dataset.id);break;
     case 'delprod': db.collection('productos').doc(b.dataset.pid).delete().catch(fail);break;
     case 'seedprod': {const bt=db.batch();SUGERIDOS.forEach(s=>bt.set(db.collection('productos').doc(),{nombre:s[0],precio:s[1]}));bt.commit().catch(fail);toast('Productos cargados. Ajusta los precios a los tuyos.');break;}
     case 'delstaff': db.collection('personal').doc(b.dataset.id).delete().then(()=>toast('Acceso quitado.'),fail);break;
@@ -1295,22 +1488,43 @@ VA.addEventListener('click',e=>{
     case 'csvmails': {const rows=[['nombre','correo','acepta_novedades']].concat(A.appUsers.map(u=>[u.nombre||'',u.id,u.acepta?'si':'no']));
       const csv='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');
       const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));download(url,'clientes-arom-gym.csv');setTimeout(()=>URL.revokeObjectURL(url),4000);break;}
+    case 'kadd': cartAdd($('#k-prod').value,parseInt($('#k-cant').value,10));$('#k-cant').value='1';break;
+    case 'kplus': {const l=cart[+b.dataset.i];if(l){cartAdd(l.pid,1);}break;}
+    case 'kminus': {const l=cart[+b.dataset.i];if(l){l.cant--;if(l.cant<1)cart.splice(+b.dataset.i,1);renderCart();}break;}
+    case 'kdel': cart.splice(+b.dataset.i,1);renderCart();break;
+    case 'iprev': case 'inext': {const d=parse(invDia||iso(today()));d.setDate(d.getDate()+(b.dataset.act==='iprev'?-1:1));invDia=iso(d)>iso(today())?iso(today()):iso(d);renderInv();break;}
+    case 'delsal': {const d=iso(today()),rec=A.inv[d]||{},log=(rec.salidasLog||[]).find(x=>x.id===b.dataset.id);if(!log)break;
+      const p=A.productos.find(x=>x.id===log.pid),bt=db.batch();
+      if(p&&tracked(p))bt.update(db.collection('productos').doc(p.id),{stock:INC(log.cant)});
+      bt.set(db.collection('inventario').doc(d),{salidas:{[log.pid]:INC(-log.cant)},salidasLog:firebase.firestore.FieldValue.arrayRemove(log)},{merge:true});
+      bt.commit().then(()=>toast('Salida anulada. El producto volvió al stock.'),fail);break;}
+    case 'reclose': {const d=iso(today());db.collection('inventario').doc(d).update({cierre:firebase.firestore.FieldValue.delete()}).then(()=>toast('Cierre deshecho. Puedes volver a contar.'),fail);break;}
     case 'cprev': case 'cnext': {const d=parse(cajaDia||iso(today()));d.setDate(d.getDate()+(b.dataset.act==='cprev'?-1:1));cajaDia=iso(d)>iso(today())?iso(today()):iso(d);renderCaja();break;}
-    case 'delmov': if(b.dataset.armed){db.collection(b.dataset.col).doc(b.dataset.id).delete().then(()=>toast('Movimiento anulado.'),fail);}else{b.dataset.armed='1';b.textContent='¿?';b.setAttribute('aria-label','Toca otra vez para anular');toast('Toca otra vez la ✕ para anular este movimiento.');setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='×';}},3000);}break;
+    case 'delmov': if(b.dataset.armed){(b.dataset.col==='compras'?Promise.all(b.dataset.id.split(',').map(delCompra)):db.collection(b.dataset.col).doc(b.dataset.id).delete()).then(()=>toast('Movimiento anulado.'),fail);}else{b.dataset.armed='1';b.textContent='¿?';b.setAttribute('aria-label','Toca otra vez para anular');toast('Toca otra vez la ✕ para anular este movimiento.');setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='×';}},3000);}break;
     case 'resetme': auth.sendPasswordResetEmail(user.email).then(()=>toast('Te enviamos un correo para cambiar tu contraseña.'),()=>toast('No se pudo enviar el correo.'));break;
     case 'forgot': {const mail=$('#l-mail').value.trim();if(!mail){$('#pinerr').textContent='Escribe tu correo arriba y vuelve a tocar “Olvidé mi contraseña”.';break;}
       auth.sendPasswordResetEmail(mail).then(()=>{$('#pinerr').textContent='';toast('Si el correo existe, te llegará un enlace para cambiar la contraseña.');},()=>$('#pinerr').textContent='Escribe un correo válido.');break;}
     case 'logout': auth.signOut();location.hash='';break;
+    case 'staffgoogle': {const pr=new firebase.auth.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});$('#pinerr').textContent='';
+      auth.signInWithPopup(pr).then(()=>{if(pendingOpen){tab='socios';view='detail';curId=pendingOpen;pendingOpen=null;}}).catch(err=>{
+        if(err.code==='auth/popup-blocked'||err.code==='auth/operation-not-supported-in-this-environment')auth.signInWithRedirect(pr);
+        else if(err.code!=='auth/popup-closed-by-user'&&err.code!=='auth/cancelled-popup-request')$('#pinerr').textContent=gErr(err);});break;}
   }
 });
 VA.addEventListener('click',e=>{const a=e.target.closest('[data-aviso]');if(!a)return;const m=getS(a.dataset.aviso);if(m)db.collection('socios').doc(m.id).update({ultimoAviso:m.fin}).catch(fail);});
-VA.addEventListener('input',e=>{if(e.target.id==='a-q'){q=e.target.value;renderList();}});
+VA.addEventListener('input',e=>{if(e.target.id==='a-q'){q=e.target.value;renderList();}if(e.target.id==='k-cli'){cartCli=e.target.value;cliHint();}});
+function cliHint(){const h=$('#k-clihint');if(!h)return;const t=cartCli.trim(),m=findSocByName(t);
+  h.textContent=!t?'Si lo dejas vacío, se registra como "Sin socio".':m?'✓ Socio: la compra quedará en su ficha.':'No es socio: se guardará solo el nombre.';h.style.color=m?'var(--ok)':'';}
 VA.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='s-plan'||t.id==='s-ini'){const ini=$('#s-ini').value;if(ini)$('#s-fin').value=addMonths(ini,PLANES[$('#s-plan').value].m);}
   if(t.id==='r-plan') updRenew();
+  if(t.id==='k-medio') cartMedio=t.value;
+
   if(t.dataset.pn&&t.value.trim()){db.collection('productos').doc(t.dataset.pn).update({nombre:t.value.trim()}).then(()=>toast('Producto actualizado.'),fail);}
   if(t.dataset.pp){const v=parseFloat(t.value);if(v>=0)db.collection('productos').doc(t.dataset.pp).update({precio:v}).then(()=>toast('Precio actualizado.'),fail);}
+  if(t.dataset.pc){const v=t.value.trim()===''?firebase.firestore.FieldValue.delete():parseFloat(t.value);if(t.value.trim()===''||v>=0)db.collection('productos').doc(t.dataset.pc).update({costo:v}).then(()=>toast('Costo actualizado.'),fail);}
+  if(t.dataset.pm){const v=t.value.trim()===''?firebase.firestore.FieldValue.delete():parseInt(t.value,10);if(t.value.trim()===''||v>=0)db.collection('productos').doc(t.dataset.pm).update({min:v}).then(()=>toast('Stock mínimo actualizado.'),fail);}
   if(t.id==='restore'&&t.files[0]){const r=new FileReader();r.onload=async()=>{try{const n=await importar(JSON.parse(r.result));toast('Copia importada: '+n+' socios.');}catch(err){toast(err&&err.code?'No se pudo importar: sin permiso o sin conexión.':'Ese archivo no es una copia de AROM GYM.');}};r.readAsText(t.files[0]);}
 });
 VA.addEventListener('submit',e=>{
@@ -1325,11 +1539,34 @@ VA.addEventListener('submit',e=>{
   }
   if(f.id==='sf') saveSocio();
   if(f.id==='buyf'){
-    const p=A.productos.find(x=>x.id===$('#b-prod').value),c=parseInt($('#b-cant').value,10);
-    if(!p){toast('Primero agrega productos en la pestaña Productos.');return;}
-    if(!(c>=1&&c<=99)){toast('Revisa la cantidad (1 a 99).');return;}
-    db.collection('compras').add({socioId:curId,pid:p.id,nombre:p.nombre,precio:p.precio,cant:c,fecha:iso(today()),hora:hhmm(),medio:$('#b-medio').value,por:user.email,creado:FV()}).catch(fail);
-    toast(p.nombre+' registrado.');
+    sell($('#b-prod').value,parseInt($('#b-cant').value,10),$('#b-medio').value,curId);
+  }
+  if(f.id==='cartf') cartPay();
+  if(f.id==='qsell'){if(sell($('#q-prod').value,parseInt($('#q-cant').value,10),$('#q-medio').value,$('#q-soc').value)){$('#q-cant').value='1';}}
+  if(f.id==='mercf'){
+    const p=A.productos.find(x=>x.id===$('#m-prod').value),q=parseInt($('#m-cant').value,10);
+    if(!p||!(q>=1&&q<=9999)){toast('Elige el producto y una cantidad válida.');return;}
+    const d=iso(today()),b=db.batch();
+    b.update(db.collection('productos').doc(p.id),{stock:INC(q)});
+    b.set(db.collection('inventario').doc(d),{ingresos:{[p.id]:INC(q)}},{merge:true});
+    b.commit().then(()=>toast('+'+q+' '+p.nombre+' agregado al stock.'),fail);$('#m-cant').value='';
+  }
+  if(f.id==='salf'){
+    const p=A.productos.find(x=>x.id===$('#x-prod').value),q=parseInt($('#x-cant').value,10),mo=$('#x-mot').value,nota=$('#x-nota').value.trim();
+    if(!p||!(q>=1&&q<=999)){toast('Elige el producto y una cantidad válida.');return;}
+    if(tracked(p)&&q>p.stock){toast('Solo hay '+p.stock+' de '+p.nombre+'.');return;}
+    if(mo==='otro'&&!nota){toast('Escribe el motivo en "Detalle".');return;}
+    const d=iso(today()),b=db.batch(),log={id:Math.random().toString(36).slice(2,10),pid:p.id,nombre:p.nombre,cant:q,motivo:mo,nota,hora:hhmm(),por:user.email};if(p.costo!=null)log.costo=p.costo;
+    if(tracked(p))b.update(db.collection('productos').doc(p.id),{stock:INC(-q)});
+    b.set(db.collection('inventario').doc(d),{salidas:{[p.id]:INC(q)},salidasLog:firebase.firestore.FieldValue.arrayUnion(log)},{merge:true});
+    b.commit().then(()=>toast('Salida registrada: '+q+' '+p.nombre+' · '+MOTIVOS[mo]+'.'),fail);$('#x-cant').value='';$('#x-nota').value='';
+  }
+  if(f.id==='openf'||f.id==='closef'){
+    const open=f.id==='openf',d=iso(today()),map={},b=db.batch();let n=0;
+    f.querySelectorAll('input[data-cnt]').forEach(i=>{if(i.value.trim()==='')return;const v=parseInt(i.value,10);if(v>=0){map[i.dataset.cnt]=v;n++;b.update(db.collection('productos').doc(i.dataset.cnt),{stock:v});}});
+    if(!n){toast('Escribe la cantidad de al menos un producto.');return;}
+    b.set(db.collection('inventario').doc(d),open?{apertura:map,abiertoPor:user.email,abiertoHora:hhmm()}:{cierre:map,cerradoPor:user.email,cerradoHora:hhmm()},{merge:true});
+    b.commit().then(()=>toast(open?'Día abierto. Ya puedes vender.':'Día cerrado. Revisa las diferencias.'),fail);
   }
   if(f.id==='otrof'){
     const c=$('#o-con').value.trim(),mo=parseFloat($('#o-mon').value);
@@ -1338,9 +1575,10 @@ VA.addEventListener('submit',e=>{
     addPago({tipo:'otro',concepto:c,monto:mo,medio:$('#o-med').value,fecha:d,hora:d===iso(today())?hhmm():'—'});toast('Ingreso registrado.');
   }
   if(f.id==='pf'){
-    const n=$('#p-n').value.trim(),pr=parseFloat($('#p-p').value);
+    const n=$('#p-n').value.trim(),pr=parseFloat($('#p-p').value),co=$('#p-c')?parseFloat($('#p-c').value):NaN,mi=$('#p-m')?parseInt($('#p-m').value,10):NaN;
     if(!n||!(pr>=0)){toast('Escribe el nombre y el precio del producto.');return;}
-    db.collection('productos').add({nombre:n,precio:pr}).catch(fail);toast(n+' agregado al catálogo.');
+    const d={nombre:n,precio:pr};if(co>=0)d.costo=co;if(mi>=0)d.min=mi;
+    db.collection('productos').add(d).catch(fail);toast(n+' agregado al catálogo.');
   }
   if(f.id==='stf'){
     const mail=$('#st-mail').value.trim().toLowerCase();
@@ -1353,6 +1591,7 @@ VA.addEventListener('submit',e=>{
 /* ---------- Clientes: entrar con Google y ver su membresía ---------- */
 const VAPP=$('#v-app');
 const GLOGO='<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+{const lg=$('#l-google');if(lg)lg.innerHTML=GLOGO+'<span>Entrar con Google</span>';}
 const gate=document.createElement('section');gate.id='c-gate';gate.className='panel';
 const memb=document.createElement('section');memb.id='c-memb';memb.className='panel';memb.hidden=true;
 if(VAPP.querySelector('.brand')) VAPP.querySelector('.brand').after(gate);
@@ -1424,7 +1663,7 @@ function clientState(u){
   if(!u){VAPP.classList.add('gated');renderGate(false);memb.hidden=true;return;}
   VAPP.classList.remove('gated');memb.hidden=false;
   const google=(u.providerData||[]).some(p=>p.providerId==='google.com');
-  (google?registerAppUser(u):Promise.resolve()).then(()=>loadMemb(u));
+  (google&&!isStaffUser?registerAppUser(u):Promise.resolve()).then(()=>loadMemb(u));
   if(google) window.dispatchEvent(new CustomEvent('aromgym:cliente',{detail:{nombre:u.displayName||''}}));
 }
 
