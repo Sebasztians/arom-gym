@@ -1204,6 +1204,7 @@ async function loadMemb(u){
   try{const c=await db.collection('clientes').doc(mail).get();
     if(c.exists){const s=await db.collection('membresias').doc(c.data().socioId).get();if(s.exists){const d=s.data();m={id:c.data().socioId,nombre:d.n,apellido:'',plan:d.p,inicio:d.s,fin:d.e};}}}catch(e){}
   if(user!==u) return;
+  window.dispatchEvent(new CustomEvent('aromgym:cliente',{detail:{nombre:m&&m.nombre?m.nombre:(u.displayName||'')}}));
   paintMemb(u,m);
 }
 function paintMemb(u,m){
@@ -1232,7 +1233,6 @@ function clientState(u){
   {const h=$('#hi'),hs=$('#hisub');if(h)h.textContent='Hola';if(hs)hs.textContent='Tu membresía en AROM GYM.';}
   const google=(u.providerData||[]).some(p=>p.providerId==='google.com');
   (google&&!isStaffUser?registerAppUser(u):Promise.resolve()).then(()=>loadMemb(u));
-  if(google) window.dispatchEvent(new CustomEvent('aromgym:cliente',{detail:{nombre:u.displayName||''}}));
 }
 
 /* ---------- Navegación ---------- */
