@@ -331,6 +331,21 @@ table.inv td:first-child{min-width:150px}
 
 .bulkrow{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:10px;align-items:center}
 details summary{cursor:pointer;font-weight:600;font-size:14px}
+
+.rrow{grid-template-columns:44px minmax(0,1fr) auto 64px}
+.rrow.on{border-color:var(--accent);background:var(--accent-soft)}
+.st.sm3{font-size:12px;padding:2px 8px}
+@media (max-width:540px){.rrow{grid-template-columns:40px minmax(0,1fr) 58px}.rrow .st{grid-row:2;grid-column:2;justify-self:start}.rrow .dl{grid-row:1/3;grid-column:3}.rrow .av{grid-row:1/3}}
+.recempty{border-style:dashed}
+#v-rec .slist{max-height:60vh;overflow:auto}
+input[readonly]{opacity:.65;cursor:default}
+
+.rdl.ok b{color:var(--ok)} .rdl.warn b{color:var(--carb)} .rdl.bad b{color:var(--bad)}
+.bigdays{display:flex;align-items:baseline;gap:10px;margin:14px 0 2px}
+.bigdays b{font-family:var(--display);font-size:56px;line-height:1;font-variant-numeric:tabular-nums}
+.bigdays span{color:var(--muted);font-weight:600}
+.bigdays.ok b{color:var(--ok)} .bigdays.warn b{color:var(--carb)} .bigdays.bad b{color:var(--bad)}
+@media (max-width:480px){#v-rec .tag{display:none}#v-rec .word{font-size:20px}#v-rec .logo{width:44px;height:44px}}
 </style>
 </head>
 <body>
@@ -376,6 +391,9 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
   </section>
 </div>
 
+<!-- RECEPCIÓN: REGISTRAR SOCIOS Y CREAR CUENTAS -->
+<div class="wrap" id="v-rec" hidden></div>
+
 <!-- FICHA QUE SE ABRE AL ESCANEAR EL QR -->
 <div class="wrap" id="v-socio" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -416,14 +434,15 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTi
 /* ---------- Conexión con Firebase ---------- */
 let db=null,auth=null;
 try{firebase.initializeApp(FB_CONFIG);db=firebase.firestore();auth=firebase.auth();}catch(e){}
-const VA=$('#v-admin');
+const VA=$('#v-admin'),VREC=$('#v-rec');
+const ON=(ev,fn)=>{VA.addEventListener(ev,fn);VREC.addEventListener(ev,fn);};
 if(!db){$('#a-wait').innerHTML='<p class="sub" style="margin:0">No se pudo conectar. Revisa tu conexión a internet y recarga la página.</p>';}
 const FV=()=>firebase.firestore.FieldValue.serverTimestamp();
 const INC=n=>firebase.firestore.FieldValue.increment(n);
 const fail=e=>{console.error(e);toast(e&&e.code==='permission-denied'?'Tu cuenta no tiene permiso para hacer esto.':'No se pudo guardar. Revisa tu conexión e inténtalo otra vez.');};
 
 let user=null,ready=false,unsub=[],raw={socios:null,compras:null,productos:null,personal:null,pagos:null};
-let A={socios:[],productos:[],personal:[],pagos:[],compras:[],appUsers:[],inv:{}};
+let A={socios:[],productos:[],personal:[],pagos:[],compras:[],appUsers:[],inv:{},codigos:{},cuentas:[],usuarios:[]};
 const isOwner=()=>!!user&&String(user.email||'').toLowerCase()===OWNER;
 const getS=id=>A.socios.find(m=>m.id===id);
 let tab='socios',view='list',curId=null,filt='todos',q='',pendingOpen=null,waitingFor=null;
@@ -440,10 +459,11 @@ function rebuild(){
 let renderPending=false;
 function scheduleRender(){
   const ae=document.activeElement;
-  const typing=ae&&$('#a-body')&&$('#a-body').contains(ae)&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)&&ae.id!=='a-q';
+  const typing=ae&&(($('#a-body')&&$('#a-body').contains(ae))||VREC.contains(ae))&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)&&ae.id!=='a-q'&&ae.id!=='rq';
   if(view==='form'||typing){renderPending=true;return;}
   renderPending=false;
   if(!VA.hidden) renderAdmin();
+  if(!VREC.hidden) renderRec();
   if(!$('#v-socio').hidden&&location.hash.indexOf('#socio=')===0) renderSocio(location.hash.slice(7));
 }
 VA.addEventListener('focusout',()=>setTimeout(()=>{if(renderPending&&view!=='form')scheduleRender();},150));
@@ -452,6 +472,9 @@ function listen(){
   const snap=(col,key)=>db.collection(col).onSnapshot(s=>{raw[key]=s.docs.map(d=>Object.assign({id:d.id},d.data()));rebuild();},err=>{
     if(err.code==='permission-denied'){denied();}else{console.error(err);toast('Se perdió la conexión. Recarga la página.');}});
   unsub=[snap('socios','socios'),snap('compras','compras'),snap('productos','productos'),snap('personal','personal'),snap('pagos','pagos'),
+    db.collection('codigos').onSnapshot(q=>{const o={};q.docs.forEach(d=>o[d.id]=d.data());A.codigos=o;if(ready)scheduleRender();},()=>{A.codigos={};}),
+    db.collection('usuarios').onSnapshot(q=>{A.usuarios=q.docs.map(d=>Object.assign({id:d.id},d.data()));if(ready)scheduleRender();},()=>{A.usuarios=[];}),
+    db.collection('cuentas').onSnapshot(q=>{A.cuentas=q.docs.map(d=>Object.assign({id:d.id},d.data()));if(ready)scheduleRender();},()=>{A.cuentas=[];}),
     db.collection('inventario').onSnapshot(q=>{const o={};q.docs.forEach(d=>o[d.id]=d.data());A.inv=o;if(ready)scheduleRender();},()=>{A.inv={};}),
     db.collection('usuarios_app').onSnapshot(q=>{A.appUsers=q.docs.map(d=>Object.assign({id:d.id},d.data()));if(ready)scheduleRender();},()=>{A.appUsers=[];})];
 }
@@ -471,7 +494,7 @@ async function checkStaff(u){
 if(auth) auth.onAuthStateChanged(async u=>{
   user=u;staffKnown=false;isStaffUser=false;stopListen();
   if(u){const st=await checkStaff(u);if(user!==u)return;isStaffUser=st;staffKnown=true;if(st)listen();}
-  renderAdmin();clientState(u);
+  renderAdmin();if(!VREC.hidden)renderRec();clientState(u);
   if(!$('#v-socio').hidden) scheduleRender();
 });
 
@@ -509,8 +532,15 @@ function topOf(list){
 
 /* ---------- Escrituras ---------- */
 const pubOf=d=>({n:(d.nombre+' '+d.apellido).trim(),p:d.plan,s:d.inicio,e:d.fin});
+const fmtCode=c=>String(c||'').replace(/(\d{2})(\d{3})/,'$1 $2');
+const normApeS=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().split(/\s+/)[0]||'';
+function newCode(){const used=new Set([...Object.keys(A.codigos),...A.socios.map(m=>m.codigo).filter(Boolean)]);let c;do{c=String(10000+Math.floor(Math.random()*90000));}while(used.has(c));return c;}
 function saveSocioDoc(id,d,isNew,oldMail){
   const b=db.batch();
+  const prev=getS(id);
+  if(isNew&&!d.codigo){d.codigo=newCode();}
+  if(isNew) b.set(db.collection('codigos').doc(d.codigo),{socioId:id,ape:normApeS(d.apellido),uid:null});
+  else if(prev&&prev.codigo&&normApeS(prev.apellido)!==normApeS(d.apellido)) b.update(db.collection('codigos').doc(prev.codigo),{ape:normApeS(d.apellido)});
   if(oldMail&&oldMail!==d.correo) b.delete(db.collection('clientes').doc(oldMail));
   if(d.correo) b.set(db.collection('clientes').doc(d.correo),{socioId:id});
   const data=Object.assign({},d,isNew?{creado:FV(),por:user.email}:{editado:FV()});
@@ -522,6 +552,8 @@ function deleteSocio(m){
   const b=db.batch();
   b.delete(db.collection('socios').doc(m.id));b.delete(db.collection('membresias').doc(m.id));
   if(m.correo) b.delete(db.collection('clientes').doc(m.correo));
+  if(m.codigo){b.delete(db.collection('codigos').doc(m.codigo));const k=A.codigos[m.codigo];if(k&&k.uid)b.delete(db.collection('vinculos').doc(k.uid));}
+  A.usuarios.filter(x=>x.socioId===m.id).forEach(x=>{b.delete(db.collection('usuarios').doc(x.id));if(x.uid)b.delete(db.collection('vinculos').doc(x.uid));});
   m.compras.slice(0,450).forEach(c=>b.delete(db.collection('compras').doc(c.id)));
   return b.commit().catch(fail);
 }
@@ -559,6 +591,7 @@ function renderSocios(){
     <div class="stat"><b style="color:var(--bad)">${c.venc}</b><small>Vencidos</small></div>
     <div class="stat"><b>${soles(vm)}</b><small>Ventas de productos este mes</small></div>
   </div>
+  <div class="codebox panel"><label for="a-cod"><b>Entrada por código</b><small class="sm2">Escribe el código de 5 números que dicta el socio.</small></label><input type="text" id="a-cod" inputmode="numeric" maxlength="6" placeholder="12 345" autocomplete="off"><div id="a-codres" class="codres"></div></div>
   <div class="toolbar"><input type="search" id="a-q" placeholder="Buscar socio por nombre" aria-label="Buscar socio" value="${esc(q)}"><button class="btn" type="button" data-act="new">+ Nuevo socio</button></div>
   <div class="filt">${[['todos','Todos',A.socios.length],['act','Activos',c.act+c.pend],['pron','Por vencer',c.pron],['venc','Vencidos',c.venc]].map(f=>`<button type="button" class="fbtn" data-filt="${f[0]}" aria-pressed="${filt===f[0]}">${f[1]}<span>${f[2]}</span></button>`).join('')}</div>
   <ul class="slist" id="a-list"></ul>`;
@@ -603,13 +636,16 @@ function renderDetail(){
         <div class="actions" style="margin:0"><button class="btn danger" type="button" data-act="dodel">Sí, eliminar</button><button class="btn ghost" type="button" data-act="cancelbox">Cancelar</button></div></div>
     </div>
     <div class="panel qrbox">
-      <div class="label">Código QR del socio</div>
+      <div class="label">Código QR y código personal</div>
+      ${m.codigo?`<div class="pcode">${fmtCode(m.codigo)}</div>`:''}
       <div class="qr">${qrSvg(link)}</div>
       <p class="fine">Al escanearlo se ve si está matriculado, sus fechas y cuántos días le quedan. Es el mismo QR aunque renueve.</p>
       <div class="actions" style="justify-content:center;margin:0"><button class="btn" type="button" data-act="dlqr">Descargar QR</button><button class="btn ghost" type="button" data-act="copy">Copiar link</button>${wa?`<a class="btn ghost" href="${wa}" target="_blank" rel="noopener">Enviar por WhatsApp</a>`:''}</div>
       <input class="linkin" id="linkin" type="text" readonly value="${esc(link)}" aria-label="Link del código QR">
+      ${m.codigo?'<p class="fine" style="margin:0">El socio puede mostrar el QR o dictar este código en la entrada.</p>':`<div class="inbox" style="width:100%"><p style="margin:0">Este socio aún no tiene código de entrada.</p><div><button class="btn sm" type="button" data-act="gencode">Generar código</button></div></div>`}
     </div>
   </div>
+  ${accountStatus(m)}
   <div class="panel mt">
     <h2>Compras en el gym</h2>
     <div class="stats" style="margin-top:10px">
@@ -714,9 +750,9 @@ function renderAjustes(){
       ${own?'<p class="fine" style="margin-top:8px">“Importar” sube los socios, compras y productos de una copia descargada de la versión anterior de la app.</p>':''}
     </div>
   </div>
-  ${(()=>{const au=[...A.appUsers].sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||''),'es')),ok=au.filter(u=>u.acepta);
+  ${(()=>{const au=allAppUsers().sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||''),'es')),ok=au.filter(u=>u.acepta);
   return `<div class="panel mt"><h2>Clientes en la app</h2>
-    <p class="sub">${au.length} ${au.length===1?'cliente entró':'clientes entraron'} con su Gmail · <b>${ok.length}</b> ${ok.length===1?'acepta':'aceptan'} recibir novedades por correo.</p>
+    <p class="sub">${au.length} ${au.length===1?'cliente tiene':'clientes tienen'} cuenta en la app · <b>${ok.length}</b> ${ok.length===1?'acepta':'aceptan'} recibir novedades por correo.</p>
     <div class="actions" style="margin:0"><button class="btn" type="button" data-act="copymails" ${ok.length?'':'disabled'}>Copiar correos para boletín (${ok.length})</button><button class="btn ghost" type="button" data-act="csvmails" ${au.length?'':'disabled'}>Descargar lista</button></div>
     <p class="fine" style="margin-top:8px">Pega los correos en el campo <b>CCO</b> (copia oculta) de Gmail, así nadie ve los correos de los demás. Solo se copian los clientes que aceptaron.</p>
     <ul class="buys mt">${au.length?au.slice(0,100).map(u=>`<li class="c3"><span>${esc(u.nombre||'Sin nombre')}<small class="sm2">${esc(u.id)}</small></span>${u.acepta?'<span class="st ok">Acepta</span>':'<span class="fine">No acepta</span>'}<span></span></li>`).join(''):'<li class="empty">Aún ningún cliente ha entrado a la app con Google.</li>'}</ul>
@@ -798,6 +834,77 @@ const otroForm=isHoy=>`<form class="panel" id="otrof" novalidate><h2>Otro ingres
       </div>
     </form>`;
 
+function allAppUsers(){return [...A.appUsers,...A.cuentas.map(c=>({id:c.correo||('@'+(c.usuario||'')),nombre:c.nombre,acepta:!!(c.acepta&&c.correo)}))];}
+/* ---------- Cuentas de clientes creadas por el personal ---------- */
+let secAuth=null,lastCreds=null;
+function secondaryAuth(){if(!secAuth)secAuth=firebase.initializeApp(FB_CONFIG,'crear-cuentas').auth();return secAuth;}
+const STAFFDOM='@personal.aromgym.app';
+function sugUser(m,taken){const base=(normApeS(m.nombre)+'.'+normApeS(m.apellido)).replace(/[^a-z0-9._]/g,'').slice(0,18)||'socio';let u=base,i=2;while(A.usuarios.some(x=>x.id===u)||(taken&&taken.has(u)))u=base.slice(0,17)+(i++);return u;}
+const genPass=()=>String(100000+Math.floor(Math.random()*900000));
+async function createAccount(m,usuario,pass,reset){
+  if(!reset&&A.usuarios.some(x=>x.id===usuario)) throw {msg:'Ese usuario ya existe. Elige otro.'};
+  m=getS(m.id)||m;
+  if(pass.length<6) throw {msg:'La contraseña debe tener al menos 6 caracteres.'};
+  const old=A.usuarios.find(x=>x.socioId===m.id);
+  const email=reset?usuario+'.v'+Date.now().toString(36)+USERDOM:usuario+USERDOM;
+  const sa=secondaryAuth(),cr=await sa.createUserWithEmailAndPassword(email,pass),uid=cr.user.uid;await sa.signOut();
+  let codigo=m.codigo;const b=db.batch();
+  if(!codigo){codigo=newCode();b.update(db.collection('socios').doc(m.id),{codigo});}
+  b.set(db.collection('codigos').doc(codigo),{socioId:m.id,ape:normApeS(m.apellido),uid,usuario},{merge:true});
+  if(old&&old.uid&&old.uid!==uid)b.delete(db.collection('vinculos').doc(old.uid));
+  b.set(db.collection('usuarios').doc(usuario),{email,uid,socioId:m.id});
+  b.set(db.collection('vinculos').doc(uid),{socioId:m.id,codigo});
+  b.set(db.collection('cuentas').doc(uid),{usuario,nombre:(m.nombre+' '+m.apellido).trim(),activar:false,creadoPor:user.email,creado:FV()});
+  await b.commit();
+  lastCreds={socioId:m.id,usuario,pass};
+  return {socioId:m.id,usuario,pass,codigo};
+}
+let bulkCreds=null,bulkBusy=false;
+async function bulkCreate(){
+  const sin=A.socios.filter(m=>!A.usuarios.some(x=>x.socioId===m.id));
+  bulkBusy=true;bulkCreds=[];const taken=new Set();rerender();
+  for(const m of sin){
+    const u=sugUser(m,taken);taken.add(u);
+    try{const c=await createAccount(m,u,genPass(),false);c.codigo=c.codigo||m.codigo;bulkCreds.push(c);}catch(e){bulkCreds.push({socioId:m.id,error:true});}
+    const pr=$('#bulkprog');if(pr)pr.textContent='Creando cuentas… '+bulkCreds.length+' de '+sin.length;
+  }
+  lastCreds=null;bulkBusy=false;rerender();toast('Cuentas creadas: '+bulkCreds.filter(c=>!c.error).length+'. Envíale sus datos a cada socio.');
+}
+const credsText=(m,c)=>`Hola ${m.nombre}, ya tienes tu cuenta de AROM GYM. Entra en ${BASE} con tu usuario: ${c.usuario} y la contraseña que creaste en recepción${c.codigo?'. Tu código de entrada al gimnasio es '+fmtCode(c.codigo):''}.`;
+const credsMsg=m=>credsText(m,Object.assign({codigo:m.codigo},lastCreds));
+function accountBlock(m){
+  const acc=A.usuarios.find(x=>x.socioId===m.id),creds=lastCreds&&lastCreds.socioId===m.id?lastCreds:null;
+  const tel=String(m.telefono||'').replace(/\D/g,'');
+  const pwFields=(btn)=>`<div class="field"><label for="acc-p">Contraseña</label><input type="password" id="acc-p" autocomplete="new-password"></div>
+      <div class="field"><label for="acc-p2">Confirmar contraseña</label><input type="password" id="acc-p2" autocomplete="new-password"></div>
+      <label class="chk full" style="margin:0"><input type="checkbox" id="acc-show"> Mostrar contraseña</label>
+      <p class="err full" id="acc-err" role="alert" style="margin:0"></p><div class="full"><button class="btn" type="submit">${btn}</button></div>`;
+  if(creds){const wa=tel?`https://wa.me/${tel.length===9?'51'+tel:tel}?text=${encodeURIComponent(credsMsg(m))}`:'';
+    return `<div class="panel mt acc"><h2>¡Cuenta lista!</h2><div class="creds" style="grid-template-columns:1fr"><div><span class="label">Usuario</span><b>${esc(creds.usuario)}</b></div></div>
+      <p class="sub">${esc(m.nombre)} ya puede entrar a la app con este usuario y la contraseña que acaba de crear. Puedes enviarle el link y su usuario por WhatsApp para que no lo olvide.</p>
+      <div class="actions" style="margin:0">${wa?`<a class="btn" href="${wa}" target="_blank" rel="noopener">Enviar por WhatsApp</a>`:''}<button class="btn ghost" type="button" data-act="hidecreds">Listo</button></div></div>`;}
+  if(acc) return `<div class="panel mt acc"><h2>Cuenta de la app</h2><p class="sub" style="margin:0">Usuario <b>${esc(acc.id)}</b> · <span class="st ok">Activa</span></p>
+      <p class="fine">Si el socio olvidó su contraseña, pásale la tablet para que cree una nueva.</p>
+      <div class="actions" style="margin:0"><button class="btn ghost" type="button" data-act="askreset">Crear contraseña nueva</button></div>
+      <form class="inbox" id="accreset" hidden novalidate><p style="margin:0"><b>Pásale la tablet al socio.</b> La contraseña anterior dejará de funcionar.</p>
+        <div class="form">${pwFields('Guardar contraseña nueva')}</div><div><button class="btn ghost sm" type="button" data-act="cancelreset">Cancelar</button></div></form></div>`;
+  return `<form class="panel mt acc" id="accf" novalidate><h2>Crear cuenta en la app</h2><p class="sub"><b>Pásale la tablet al socio</b> para que cree su contraseña. El personal no la ve.</p>
+    <div class="form">
+      <div class="field"><label>Nombre</label><input type="text" value="${esc(m.nombre)}" readonly tabindex="-1"></div>
+      <div class="field"><label>Apellido</label><input type="text" value="${esc(m.apellido)}" readonly tabindex="-1"></div>
+      <div class="field full"><label for="acc-u">Tu usuario</label><input type="text" id="acc-u" value="${esc(sugUser(m))}" autocapitalize="none" spellcheck="false" maxlength="20" autocomplete="off"><small class="sm2">Lo generamos con tu nombre y apellido. Puedes cambiarlo.</small></div>
+      ${pwFields('Crear mi cuenta')}
+    </div></form>`;
+}
+function codeLookup(v){
+  const box=$('#a-codres');if(!box)return;const c=String(v).replace(/\D/g,'');
+  if(c.length<5){box.innerHTML='';return;}
+  const m=A.socios.find(x=>x.codigo===c);
+  if(!m){box.innerHTML='<p class="err" style="margin:0">No hay ningún socio con el código '+esc(fmtCode(c))+'.</p>';return;}
+  const e=estado(m);
+  box.innerHTML=`<div class="sband b-${e.cls}" style="margin:0"><span class="label">${esc(m.nombre+' '+m.apellido)}</span><b>${e.lab}</b></div>
+    <p class="fine" style="margin:8px 0 0">${e.k==='venc'?'Venció el '+fmt(m.fin):'Vence el '+fmt(m.fin)} · ${e.txt}. <button type="button" class="linkbtn" data-act="open" data-id="${m.id}">Ver ficha</button></p>`;
+}
 /* ---------- Venta de varios productos (carrito) ---------- */
 let cart=[],cartMedio='efe',cartCli='';
 const socName=m=>(m.nombre+' '+m.apellido).trim();
@@ -1026,7 +1133,7 @@ $('#v-socio').addEventListener('click',e=>{const b=e.target.closest('[data-act="
 
 /* ---------- Eventos del panel ---------- */
 const authMsg=c=>({'auth/invalid-credential':'Correo o contraseña incorrectos.','auth/wrong-password':'Correo o contraseña incorrectos.','auth/user-not-found':'Correo o contraseña incorrectos.','auth/invalid-email':'Escribe un correo válido.','auth/too-many-requests':'Demasiados intentos. Espera unos minutos.','auth/network-request-failed':'Sin conexión a internet.'}[c]||'No se pudo entrar. Inténtalo de nuevo.');
-VA.addEventListener('click',e=>{
+ON('click',e=>{
   const b=e.target.closest('[data-act],[data-filt],[data-at]'); if(!b) return;
   if(b.dataset.at){tab=b.dataset.at;view='list';renderAdmin();return;}
   if(b.dataset.filt){filt=b.dataset.filt;renderSocios();return;}
@@ -1050,8 +1157,21 @@ VA.addEventListener('click',e=>{
     case 'seedprod': {const bt=db.batch();SUGERIDOS.forEach(s=>bt.set(db.collection('productos').doc(),{nombre:s[0],precio:s[1]}));bt.commit().catch(fail);toast('Productos cargados. Ajusta los precios a los tuyos.');break;}
     case 'delstaff': db.collection('personal').doc(b.dataset.id).delete().then(()=>toast('Acceso quitado.'),fail);break;
     case 'backup': backup();break;
-    case 'copymails': {const t=A.appUsers.filter(u=>u.acepta).map(u=>u.id).join(', ');try{navigator.clipboard.writeText(t).then(()=>toast('Correos copiados. Pégalos en CCO de Gmail.'),()=>toast('No se pudo copiar.'));}catch(e){toast('No se pudo copiar.');}break;}
-    case 'csvmails': {const rows=[['nombre','correo','acepta_novedades']].concat(A.appUsers.map(u=>[u.nombre||'',u.id,u.acepta?'si':'no']));
+    case 'gencode': {const c=newCode(),b2=db.batch();b2.set(db.collection('codigos').doc(c),{socioId:m.id,ape:normApeS(m.apellido),uid:null});b2.update(db.collection('socios').doc(m.id),{codigo:c});b2.commit().then(()=>toast('Código '+fmtCode(c)+' creado.'),fail);break;}
+    case 'recsel': recSel=b.dataset.id;recNew=false;lastCreds=null;renderRec();if(innerWidth<800){const r=VREC.querySelector('.stack');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});}break;
+    case 'recnew': recNew=true;recSel=null;renderRec();setTimeout(()=>{const i=$('#rn-nom');if(i)i.focus();},50);break;
+    case 'recnewcancel': recNew=false;renderRec();break;
+    case 'askbulk': $('#bulkbox').hidden=false;break;
+    case 'cancelbulk': $('#bulkbox').hidden=true;break;
+    case 'dobulk': if(!bulkBusy)bulkCreate();break;
+    case 'hidebulk': bulkCreds=null;rerender();break;
+    case 'askreset': $('#accreset').hidden=false;break;
+    case 'cancelreset': $('#accreset').hidden=true;break;
+    case 'doreset': {const acc=A.usuarios.find(x=>x.socioId===m.id);if(!acc)break;b.disabled=true;createAccount(m,acc.id,$('#acc-p2').value.trim(),true).then(()=>{toast('Código de activación nuevo listo. Envíaselo al socio.');rerender();}).catch(x=>{b.disabled=false;toast(x&&x.msg||'No se pudo reiniciar. Revisa tu conexión.');});break;}
+    case 'copycreds': {const t=credsMsg(m);try{navigator.clipboard.writeText(t).then(()=>toast('Datos copiados.'),()=>toast('No se pudo copiar.'));}catch(e){toast('No se pudo copiar.');}break;}
+    case 'hidecreds': lastCreds=null;rerender();break;
+    case 'copymails': {const t=allAppUsers().filter(u=>u.acepta&&u.id.includes('@')).map(u=>u.id).join(', ');try{navigator.clipboard.writeText(t).then(()=>toast('Correos copiados. Pégalos en CCO de Gmail.'),()=>toast('No se pudo copiar.'));}catch(e){toast('No se pudo copiar.');}break;}
+    case 'csvmails': {const rows=[['nombre','correo','acepta_novedades']].concat(allAppUsers().map(u=>[u.nombre||'',u.id.includes('@')?u.id:'',u.acepta?'si':'no']));
       const csv='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');
       const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));download(url,'clientes-arom-gym.csv');setTimeout(()=>URL.revokeObjectURL(url),4000);break;}
     case 'kadd': cartAdd($('#k-prod').value,parseInt($('#k-cant').value,10));$('#k-cant').value='1';break;
@@ -1070,19 +1190,21 @@ VA.addEventListener('click',e=>{
     case 'resetme': auth.sendPasswordResetEmail(user.email).then(()=>toast('Te enviamos un correo para cambiar tu contraseña.'),()=>toast('No se pudo enviar el correo.'));break;
     case 'forgot': {const mail=$('#l-mail').value.trim();if(!mail){$('#pinerr').textContent='Escribe tu correo arriba y vuelve a tocar “Olvidé mi contraseña”.';break;}
       auth.sendPasswordResetEmail(mail).then(()=>{$('#pinerr').textContent='';toast('Si el correo existe, te llegará un enlace para cambiar la contraseña.');},()=>$('#pinerr').textContent='Escribe un correo válido.');break;}
-    case 'logout': auth.signOut();location.hash='';break;
+    case 'logout': auth.signOut();if(VREC.hidden)location.hash='';break;
     case 'staffgoogle': {const pr=new firebase.auth.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});$('#pinerr').textContent='';
       auth.signInWithPopup(pr).then(()=>{if(pendingOpen){tab='socios';view='detail';curId=pendingOpen;pendingOpen=null;}}).catch(err=>{
         if(err.code==='auth/popup-blocked'||err.code==='auth/operation-not-supported-in-this-environment')auth.signInWithRedirect(pr);
         else if(err.code!=='auth/popup-closed-by-user'&&err.code!=='auth/cancelled-popup-request')$('#pinerr').textContent=gErr(err);});break;}
   }
 });
-VA.addEventListener('click',e=>{const a=e.target.closest('[data-aviso]');if(!a)return;const m=getS(a.dataset.aviso);if(m)db.collection('socios').doc(m.id).update({ultimoAviso:m.fin}).catch(fail);});
-VA.addEventListener('input',e=>{if(e.target.id==='a-q'){q=e.target.value;renderList();}if(e.target.id==='k-cli'){cartCli=e.target.value;cliHint();}});
+ON('click',e=>{const a=e.target.closest('[data-aviso]');if(!a)return;const m=getS(a.dataset.aviso);if(m)db.collection('socios').doc(m.id).update({ultimoAviso:m.fin}).catch(fail);});
+ON('input',e=>{if(e.target.id==='rq'){recQ=e.target.value;const pos=e.target.selectionStart;renderRec();const i=$('#rq');if(i){i.focus();try{i.setSelectionRange(pos,pos);}catch(x){}}return;}if(e.target.id==='a-cod')codeLookup(e.target.value);if(e.target.id==='a-q'){q=e.target.value;renderList();}if(e.target.id==='k-cli'){cartCli=e.target.value;cliHint();}});
 function cliHint(){const h=$('#k-clihint');if(!h)return;const t=cartCli.trim(),m=findSocByName(t);
   h.textContent=!t?'Si lo dejas vacío, se registra como "Sin socio".':m?'✓ Socio: la compra quedará en su ficha.':'No es socio: se guardará solo el nombre.';h.style.color=m?'var(--ok)':'';}
-VA.addEventListener('change',e=>{
+ON('change',e=>{
   const t=e.target;
+  if(t.id==='acc-show'){['acc-p','acc-p2'].forEach(i=>{const el=$('#'+i);if(el)el.type=t.checked?'text':'password';});}
+  if(t.id==='rn-plan'||t.id==='rn-ini'){const ini=$('#rn-ini').value;if(ini)$('#rn-fin').value=addMonths(ini,PLANES[$('#rn-plan').value].m);}
   if(t.id==='s-plan'||t.id==='s-ini'){const ini=$('#s-ini').value;if(ini)$('#s-fin').value=addMonths(ini,PLANES[$('#s-plan').value].m);}
   if(t.id==='r-plan') updRenew();
   if(t.id==='k-medio') cartMedio=t.value;
@@ -1093,7 +1215,7 @@ VA.addEventListener('change',e=>{
   if(t.dataset.pm){const v=t.value.trim()===''?firebase.firestore.FieldValue.delete():parseInt(t.value,10);if(t.value.trim()===''||v>=0)db.collection('productos').doc(t.dataset.pm).update({min:v}).then(()=>toast('Stock mínimo actualizado.'),fail);}
   if(t.id==='restore'&&t.files[0]){const r=new FileReader();r.onload=async()=>{try{const n=await importar(JSON.parse(r.result));toast('Copia importada: '+n+' socios.');}catch(err){toast(err&&err.code?'No se pudo importar: sin permiso o sin conexión.':'Ese archivo no es una copia de AROM GYM.');}};r.readAsText(t.files[0]);}
 });
-VA.addEventListener('submit',e=>{
+ON('submit',e=>{
   e.preventDefault();const f=e.target;
   if(f.id==='lockf'){
     const mail=$('#l-mail').value.trim(),pass=$('#l-pass').value;
@@ -1104,6 +1226,37 @@ VA.addEventListener('submit',e=>{
       .catch(err=>{$('#pinerr').textContent=authMsg(err.code);}).finally(()=>{$('#l-btn').disabled=false;});
   }
   if(f.id==='sf') saveSocio();
+  if(f.id==='accreset'){
+    const m=getS(curId),acc=A.usuarios.find(x=>x.socioId===m.id),pw=$('#acc-p').value,er=$('#acc-err');er.textContent='';
+    if(!acc)return;if(pw.length<6){er.textContent='La contraseña debe tener al menos 6 caracteres.';return;}
+    if(pw!==$('#acc-p2').value){er.textContent='Las dos contraseñas no coinciden.';return;}
+    const bt=f.querySelector('button[type=submit]');bt.disabled=true;
+    createAccount(m,acc.id,pw,true).then(()=>{lastCreds=null;toast('Contraseña nueva guardada.');rerender();}).catch(x=>{bt.disabled=false;er.textContent=x&&x.msg||'No se pudo guardar. Revisa tu conexión.';});
+  }
+  if(f.id==='rlogin'){const mail=$('#r-mail').value.trim(),pw=$('#r-pass').value;if(!mail||!pw){$('#r-err').textContent='Escribe tu correo y tu contraseña.';return;}
+    auth.signInWithEmailAndPassword(mail,pw).catch(x=>{$('#r-err').textContent=authMsg(x.code);});}
+  if(f.id==='recnew'){
+    const v=id=>$('#'+id).value.trim();
+    const d={nombre:v('rn-nom'),apellido:v('rn-ape'),telefono:v('rn-tel'),correo:v('rn-mail').toLowerCase(),plan:v('rn-plan'),inicio:v('rn-ini'),fin:v('rn-fin')};
+    const monto=parseFloat(v('rn-monto'))||0,er=$('#rn-err');
+    if(!d.nombre||!d.apellido){er.textContent='Escribe nombres y apellidos.';return;}
+    if(!d.inicio||!d.fin||d.fin<=d.inicio){er.textContent='Revisa las fechas: el vencimiento debe ser después de la matrícula.';return;}
+    if(d.correo&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.correo)){er.textContent='El Gmail no es válido.';return;}
+    if(d.correo&&A.socios.some(x=>x.correo===d.correo)){er.textContent='Ese Gmail ya está registrado en otro socio.';return;}
+    const id=db.collection('socios').doc().id;
+    saveSocioDoc(id,d,true,'');
+    if(monto>0) addPago({tipo:'matricula',socioId:id,concepto:'Matrícula '+planName(d.plan)+' · '+d.nombre+' '+d.apellido,monto,medio:v('rn-medio')});
+    recNew=false;recSel=id;toast('Socio registrado. Ahora pásale la tablet para que cree su cuenta.');
+    setTimeout(renderRec,150);
+  }
+  if(f.id==='accf'){
+    const m=getS(curId),u=$('#acc-u').value.trim().toLowerCase(),pw=$('#acc-p').value;
+    if(pw!==$('#acc-p2').value){$('#acc-err').textContent='Las dos contraseñas no coinciden.';return;}
+    if(!/^[a-z0-9._]{3,20}$/.test(u)){$('#acc-err').textContent='El usuario debe tener de 3 a 20 letras o números, sin espacios (puede llevar . o _).';return;}
+    if(pw.length<6){$('#acc-err').textContent='La contraseña debe tener al menos 6 caracteres.';return;}
+    const bt=f.querySelector('button[type=submit]');bt.disabled=true;$('#acc-err').textContent='';
+    createAccount(m,u,pw,false).then(()=>{toast('Cuenta creada.');rerender();}).catch(x=>{bt.disabled=false;$('#acc-err').textContent=x&&x.msg?x.msg:x&&x.code==='auth/email-already-in-use'?'Ese usuario ya existe. Elige otro.':'No se pudo crear la cuenta. Revisa tu conexión.';});
+  }
   if(f.id==='buyf'){
     sell($('#b-prod').value,parseInt($('#b-cant').value,10),$('#b-medio').value,curId);
   }
@@ -1154,91 +1307,232 @@ VA.addEventListener('submit',e=>{
 });
 
 
-/* ---------- Clientes: entrar con Google y ver su membresía ---------- */
+/* ---------- Clientes: cuenta propia (usuario y contraseña), Google opcional ---------- */
 const VAPP=$('#v-app');
 const GLOGO='<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
 {const lg=$('#l-google');if(lg)lg.innerHTML=GLOGO+'<span>Entrar con Google</span>';}
+const USERDOM='@clientes.aromgym.app';
+const isUserAcc=u=>String(u&&u.email||'').endsWith(USERDOM);
+const userOf=u=>isUserAcc(u)?u.email.slice(0,-USERDOM.length):'';
+const hasGoogle=u=>(u.providerData||[]).some(p=>p.providerId==='google.com');
+const normApe=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim().split(/\s+/)[0]||'';
+const fmtCod=c=>String(c||'').replace(/(\d{2})(\d{3})/,'$1 $2');
 const gate=document.createElement('section');gate.id='c-gate';gate.className='panel';
 const memb=document.createElement('section');memb.id='c-memb';memb.className='panel';memb.hidden=true;
 if(VAPP.querySelector('.brand')) VAPP.querySelector('.brand').after(gate);
 if(VAPP.querySelector('.hello')) VAPP.querySelector('.hello').after(memb);
-let pendingNews=null,clientAcepta=false;
+let pendingNews=null,clientAcepta=false,cuenta=null,gateMsg='';
 try{const v=sessionStorage.getItem('ag_news');if(v!==null){pendingNews=v==='1';sessionStorage.removeItem('ag_news');}}catch(e){}
-function renderGate(loading){
-  gate.innerHTML=loading?'<p class="sub" style="margin:0">Cargando…</p>':`
-    <h2>Bienvenido a AROM GYM</h2>
-    <p class="sub">Entra con tu cuenta de Google para ver tu membresía y armar tu plan de entrenamiento.</p>
-    <label class="chk"><input type="checkbox" id="c-news"> Quiero recibir novedades, promociones y consejos de AROM GYM en mi correo.</label>
-    <button class="btn gbtn" type="button" id="c-google">${GLOGO}<span>Continuar con Google</span></button>
-    <p class="err" id="c-err" role="alert"></p>
-    <p class="fine">Si abriste este enlace desde WhatsApp o Instagram y no te deja entrar, ábrelo en Chrome o Safari.</p>
+const gErr=e=>{const c=e&&e.code;return c==='auth/unauthorized-domain'?'Falta autorizar este sitio en Firebase (Dominios autorizados).':c==='auth/operation-not-allowed'?'Este tipo de acceso aún no está activado en Firebase.':c==='auth/email-already-in-use'?'Ese usuario ya existe. Elige otro.':c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found'||c==='auth/invalid-email'?'Usuario o contraseña incorrectos.':c==='auth/weak-password'?'La contraseña debe tener al menos 6 caracteres.':c==='auth/too-many-requests'?'Demasiados intentos. Espera unos minutos.':c==='auth/network-request-failed'?'Sin conexión a internet.':c==='auth/credential-already-in-use'||c==='auth/provider-already-linked'?'Esa cuenta de Google ya está unida a otra cuenta de AROM GYM.':'No se pudo completar. Inténtalo otra vez.';};
+function renderGate(loading,msg){
+  msg=msg||gateMsg;if(!loading)gateMsg='';
+  if(loading){gate.innerHTML='<p class="sub" style="margin:0">Cargando…</p>';return;}
+  gate.innerHTML=`<h2>Bienvenido a AROM GYM</h2>
+    <p class="sub">Entra con el usuario y la contraseña que creaste en el gimnasio.</p>
+    <form id="c-inf" class="form" novalidate>
+      <div class="field full"><label for="c-u">Usuario</label><input type="text" id="c-u" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40"></div>
+      <div class="field full"><label for="c-p">Contraseña</label><input type="password" id="c-p" autocomplete="current-password"></div>
+      <div class="full"><button class="btn" type="submit" style="width:100%">Entrar</button></div>
+      <p class="fine full" style="margin:0"><button type="button" class="linkbtn" data-g="forgot">¿Olvidaste tu contraseña?</button> · ¿No tienes cuenta? Pídela en recepción.</p></form>
+    <p class="err" id="c-err" role="alert">${msg?esc(msg):''}</p>
+    <div class="orline"><span>o</span></div>
+    <button class="btn gbtn" type="button" id="c-google">${GLOGO}<span>Entrar con Google</span></button>
+    <p class="fine" style="margin-top:8px">Solo si ya vinculaste tu cuenta de Google desde la app. Si lo abriste desde WhatsApp o Instagram y no funciona, ábrelo en Chrome o Safari.</p>
     <p class="staff"><a href="#personal">Acceso del personal</a></p>`;
 }
 if(auth){VAPP.classList.add('gated');renderGate(true);auth.getRedirectResult().catch(e=>{const el=$('#c-err');if(el)el.textContent=gErr(e);});}
-const gErr=e=>e&&e.code==='auth/unauthorized-domain'?'Falta autorizar este sitio en Firebase (Dominios autorizados).':e&&e.code==='auth/operation-not-allowed'?'El acceso con Google aún no está activado en Firebase.':'No se pudo entrar con Google. Inténtalo otra vez.';
+const gProv=()=>{const pr=new firebase.auth.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});return pr;};
 gate.addEventListener('click',e=>{
+  const g=e.target.closest('[data-g]');
+  if(g&&g.dataset.g==='forgot'){$('#c-err').textContent='Si vinculaste tu cuenta de Google, entra con Google. Si no, acércate a recepción y crea una contraseña nueva.';return;}
   if(!e.target.closest('#c-google')) return;
-  pendingNews=!!($('#c-news')&&$('#c-news').checked);$('#c-err').textContent='';
-  const pr=new firebase.auth.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});
+  $('#c-err').textContent='';const pr=gProv();
   auth.signInWithPopup(pr).catch(err=>{
-    if(err.code==='auth/popup-blocked'||err.code==='auth/operation-not-supported-in-this-environment'){try{sessionStorage.setItem('ag_news',pendingNews?'1':'0');}catch(x){}auth.signInWithRedirect(pr);}
+    if(err.code==='auth/popup-blocked'||err.code==='auth/operation-not-supported-in-this-environment'){auth.signInWithRedirect(pr);}
     else if(err.code!=='auth/popup-closed-by-user'&&err.code!=='auth/cancelled-popup-request') $('#c-err').textContent=gErr(err);
   });
+});
+gate.addEventListener('submit',async e=>{
+  e.preventDefault();if(e.target.id!=='c-inf')return;const err=$('#c-err');err.textContent='';
+  const u=$('#c-u').value.trim().toLowerCase(),p=$('#c-p').value;
+  if(!u||!p){err.textContent='Escribe tu usuario y tu contraseña.';return;}
+  let email=u;
+  if(!u.includes('@')){try{const d=await db.collection('usuarios').doc(u).get();email=d.exists?d.data().email:u+USERDOM;}catch(x){email=u+USERDOM;}}
+  auth.signInWithEmailAndPassword(email,p).catch(x=>err.textContent=gErr(x));
 });
 async function registerAppUser(u){
   const mail=String(u.email||'').toLowerCase(),ref=db.collection('usuarios_app').doc(mail);
   const data={nombre:u.displayName||'',ultimoIngreso:FV()};
-  try{
-    const s=await ref.get();
-    if(pendingNews!==null){data.acepta=pendingNews;data.aceptaFecha=FV();}
-    else if(!s.exists) data.acepta=false;
+  try{const s=await ref.get();
+    if(pendingNews!==null){data.acepta=pendingNews;data.aceptaFecha=FV();} else if(!s.exists) data.acepta=false;
     if(!s.exists) data.creado=FV();
     await ref.set(data,{merge:true});
     clientAcepta=data.acepta!==undefined?data.acepta:!!(s.exists&&s.data().acepta);
   }catch(e){console.warn(e);}
   pendingNews=null;
 }
+async function loadCuenta(u){
+  const ref=db.collection('cuentas').doc(u.uid);
+  try{
+    {const s=await ref.get();cuenta=s.exists?s.data():{usuario:userOf(u),nombre:''};ref.set({ultimoIngreso:FV()},{merge:true}).catch(()=>{});}
+  }catch(e){cuenta={usuario:userOf(u),nombre:''};}
+  clientAcepta=!!cuenta.acepta;
+}
 async function loadMemb(u){
   memb.innerHTML='<p class="sub" style="margin:0">Buscando tu membresía…</p>';
-  const mail=String(u.email||'').toLowerCase();let m=null;
-  try{const c=await db.collection('clientes').doc(mail).get();
-    if(c.exists){const s=await db.collection('membresias').doc(c.data().socioId).get();if(s.exists){const d=s.data();m={id:c.data().socioId,nombre:d.n,apellido:'',plan:d.p,inicio:d.s,fin:d.e};}}}catch(e){}
+  let m=null,cod='';
+  try{
+    const v=await db.collection('vinculos').doc(u.uid).get();
+    let sid=v.exists?v.data().socioId:null;cod=v.exists?v.data().codigo:'';
+    if(!sid&&u.email&&!isUserAcc(u)){const c=await db.collection('clientes').doc(String(u.email).toLowerCase()).get();if(c.exists)sid=c.data().socioId;}
+    if(sid){const s=await db.collection('membresias').doc(sid).get();if(s.exists){const d=s.data();m={id:sid,nombre:d.n,apellido:'',plan:d.p,inicio:d.s,fin:d.e,codigo:cod||d.c||''};}}
+  }catch(e){}
   if(user!==u) return;
-  window.dispatchEvent(new CustomEvent('aromgym:cliente',{detail:{nombre:m&&m.nombre?m.nombre:(u.displayName||'')}}));
+  if(m&&m.nombre) window.dispatchEvent(new CustomEvent('aromgym:cliente',{detail:{nombre:m.nombre}}));
   paintMemb(u,m);
 }
 function paintMemb(u,m){
-  const foot=`<div class="cfoot"><label class="chk sm"><input type="checkbox" id="c-news2" ${clientAcepta?'checked':''}> Recibir novedades de AROM GYM por correo</label><span class="fine">${esc(u.email)} · <button type="button" class="linkbtn" id="c-out">Cerrar sesión</button></span></div>`;
-  if(!m){memb.innerHTML=`<div class="label">Mi membresía</div><h2 class="mt0">Aún no está vinculada</h2><p class="sub">No encontramos una membresía con el correo <b>${esc(u.email)}</b>. Pide en recepción que registren este Gmail en tu ficha de socio y vuelve a abrir la app.</p>`+foot;return;}
+  const who=isUserAcc(u)?'@'+esc(userOf(u)):esc(u.email);
+  const canNews=!isUserAcc(u)||!!(cuenta&&cuenta.correo);
+  const foot=`<div class="cfoot">${canNews?`<label class="chk sm"><input type="checkbox" id="c-news2" ${clientAcepta?'checked':''}> Recibir novedades de AROM GYM por correo</label>`:'<span class="fine">Para recibir novedades por correo, une tu cuenta con Google.</span>'}
+    <span class="fine">${who}${hasGoogle(u)?' · <span class="st ok">Google unido</span>':` · <button type="button" class="linkbtn" id="c-link">Vincular cuenta de Google</button>`}${isUserAcc(u)?' · <button type="button" class="linkbtn" id="c-pw">Cambiar contraseña</button>':''} · <button type="button" class="linkbtn" id="c-out">Cerrar sesión</button></span></div>
+    <form class="inbox" id="c-pwf" hidden novalidate><div class="form"><div class="field"><label for="c-pw1">Contraseña nueva</label><input type="password" id="c-pw1" autocomplete="new-password"></div><div class="field"><label for="c-pw2">Repítela</label><input type="password" id="c-pw2" autocomplete="new-password"></div></div>
+      <p class="err" id="c-pwerr" role="alert" style="margin:0"></p><div class="actions" style="margin:0"><button class="btn" type="submit">Guardar contraseña</button></div></form>`;
+  if(!m){memb.innerHTML=`<div class="label">Mi membresía</div><h2 class="mt0">Sin membresía</h2><p class="sub">Tu cuenta todavía no tiene una membresía asignada. Acércate a recepción y te ayudamos.</p>`+foot;return;}
   const e=estado(m),t=e.k==='venc'?['Venció hace',dias(-e.left)]:e.k==='pend'?['Empieza','pronto']:['Te quedan',dias(e.left)];
   const msg=e.k==='venc'?'Tu membresía venció. Acércate a recepción para renovar.':e.k==='pron'?(e.left===0?'Tu membresía vence hoy. Renueva para seguir entrenando.':'Te quedan '+dias(e.left)+'. Renueva a tiempo para no perder días.'):e.k==='pend'?'Tu membresía todavía no empieza.':'Estás al día. ¡A entrenar!';
   memb.innerHTML=`<div class="sband b-${e.cls}"><span class="label">Mi membresía</span><b>${e.lab}</b></div>
     <div class="dates"><div><span class="label">Inscripción</span><b>${fmt(m.inicio)}</b></div><div><span class="label">Vence</span><b>${fmt(m.fin)}</b></div><div><span class="label">${t[0]}</span><b>${t[1]}</b></div></div>
     <div class="prog"><i style="width:${e.pct}%;background:${barCol(e.cls)}"></i></div>
     <p class="fine" style="margin-top:8px">${msg}</p>
-    <div class="cqr"><div class="qr">${qrSvg(linkFor(m))}</div><div><b>Mi código QR</b><p class="fine">Muéstralo en recepción al entrar. Es el mismo código de tu ficha en el gimnasio. Si no lo leen, sube el brillo de tu pantalla.</p></div></div>`+foot;
+    <div class="cqr"><div class="qr">${qrSvg(linkFor(m))}</div><div><b>Para entrar</b><p class="fine">Muestra este QR en recepción${m.codigo?' o dicta tu código:':'.'}</p>${m.codigo?`<div class="pcode" aria-label="Código personal">${fmtCod(m.codigo)}</div>`:''}<p class="fine">Si no leen el QR, sube el brillo de tu pantalla.</p></div></div>`+foot;
 }
-memb.addEventListener('click',e=>{if(e.target.closest('#c-out'))auth.signOut();});
+memb.addEventListener('click',e=>{
+  if(e.target.closest('#c-out'))auth.signOut();
+  if(e.target.closest('#c-pw')){const f=$('#c-pwf');f.hidden=!f.hidden;}
+  if(e.target.closest('#c-link')&&user){user.linkWithPopup(gProv()).then(()=>{toast('Cuenta de Google vinculada: ahora también puedes entrar con Google.');paintMemb(user,null);loadMemb(user);}).catch(x=>{if(x.code!=='auth/popup-closed-by-user'&&x.code!=='auth/cancelled-popup-request')toast(gErr(x));});}
+});
+memb.addEventListener('submit',e=>{
+  e.preventDefault();if(e.target.id!=='c-pwf'||!user)return;
+  const a=$('#c-pw1').value,b=$('#c-pw2').value,er=$('#c-pwerr');er.textContent='';
+  if(a.length<6){er.textContent='Debe tener al menos 6 caracteres.';return;}
+  if(a!==b){er.textContent='Las dos contraseñas no coinciden.';return;}
+  user.updatePassword(a).then(()=>{toast('Contraseña cambiada.');$('#c-pwf').hidden=true;$('#c-pw1').value='';$('#c-pw2').value='';})
+    .catch(x=>{er.textContent=x&&x.code==='auth/requires-recent-login'?'Por seguridad, cierra sesión, vuelve a entrar y cámbiala de nuevo.':'No se pudo cambiar. Inténtalo otra vez.';});
+});
 memb.addEventListener('change',e=>{
   if(e.target.id!=='c-news2'||!user) return;
   clientAcepta=e.target.checked;
-  db.collection('usuarios_app').doc(String(user.email).toLowerCase()).set({acepta:clientAcepta,aceptaFecha:FV()},{merge:true})
-    .then(()=>toast(clientAcepta?'Listo, te enviaremos novedades.':'Ya no recibirás novedades por correo.'),fail);
+  const p=isUserAcc(user)?db.collection('cuentas').doc(user.uid).set({acepta:clientAcepta,aceptaFecha:FV()},{merge:true}):db.collection('usuarios_app').doc(String(user.email).toLowerCase()).set({acepta:clientAcepta,aceptaFecha:FV()},{merge:true});
+  p.then(()=>toast(clientAcepta?'Listo, te enviaremos novedades.':'Ya no recibirás novedades por correo.'),fail);
 });
 window.addEventListener('aromgym:cliente',e=>{const n=((e.detail&&e.detail.nombre)||'').trim().split(/\s+/)[0];const h=$('#hi');if(h)h.textContent=n?'Hola, '+n:'Hola';});
-function clientState(u){
+async function clientState(u){
   if(!auth) return;
-  if(!u){VAPP.classList.add('gated');renderGate(false);memb.hidden=true;return;}
+  if(!u){cuenta=null;VAPP.classList.add('gated');renderGate(false);memb.hidden=true;return;}
   VAPP.classList.remove('gated');memb.hidden=false;
   {const h=$('#hi'),hs=$('#hisub');if(h)h.textContent='Hola';if(hs)hs.textContent='Tu membresía en AROM GYM.';}
-  const google=(u.providerData||[]).some(p=>p.providerId==='google.com');
-  (google&&!isStaffUser?registerAppUser(u):Promise.resolve()).then(()=>loadMemb(u));
+  let nombre=u.displayName||'';
+  if(isUserAcc(u)){await loadCuenta(u);nombre=cuenta&&cuenta.nombre||'';
+    if(cuenta&&cuenta.activar){if(user!==u)return;paintActivar(u,nombre);if(nombre)window.dispatchEvent(new CustomEvent('aromgym:cliente',{detail:{nombre}}));return;}}
+  else if(hasGoogle(u)&&!isStaffUser){
+    const v=await db.collection('vinculos').doc(u.uid).get().catch(()=>null);
+    const c=v&&v.exists?null:await db.collection('clientes').doc(String(u.email||'').toLowerCase()).get().catch(()=>null);
+    if(!(v&&v.exists)&&!(c&&c.exists)){
+      if(location.hash==='#personal'||location.hash==='#recepcion') return;
+      const msg='Esta cuenta de Google no está vinculada a ninguna cuenta de AROM GYM. Entra con tu usuario y vincúlala desde la app.';
+      gateMsg=msg;try{await u.delete();}catch(x){try{await auth.signOut();}catch(y){}}
+      renderGate(false,msg);return;
+    }
+    if(v&&v.exists){try{const c=await db.collection('cuentas').doc(u.uid).get();if(c.exists){cuenta=c.data();nombre=cuenta.nombre||nombre;clientAcepta=!!cuenta.acepta;}}catch(e){}}
+    else await registerAppUser(u);
+  }
+  if(user!==u) return;
+  loadMemb(u);
+  if(nombre) window.dispatchEvent(new CustomEvent('aromgym:cliente',{detail:{nombre}}));
+}
+
+function paintActivar(u,nombre){
+  const h=$('#hisub');if(h)h.textContent='Bienvenido a AROM GYM.';
+  memb.innerHTML=`<div class="label">Primer ingreso</div><h2 class="mt0">Crea tu contraseña</h2>
+    <p class="sub">Elige una contraseña que solo tú conozcas. Desde ahora entrarás con tu usuario <b>${esc(userOf(u))}</b> y esta contraseña.</p>
+    <form id="c-actf" class="form" novalidate><div class="field"><label for="c-a1">Contraseña nueva</label><input type="password" id="c-a1" autocomplete="new-password"></div>
+      <div class="field"><label for="c-a2">Repítela</label><input type="password" id="c-a2" autocomplete="new-password"></div>
+      <p class="err full" id="c-aerr" role="alert" style="margin:0"></p><div class="full"><button class="btn" type="submit">Guardar mi contraseña</button></div></form>
+    <p class="fine"><button type="button" class="linkbtn" id="c-out">Cerrar sesión</button></p>`;
+}
+memb.addEventListener('submit',e=>{
+  if(e.target.id!=='c-actf'||!user)return;e.preventDefault();e.stopImmediatePropagation();
+  const a=$('#c-a1').value,b=$('#c-a2').value,er=$('#c-aerr');er.textContent='';
+  if(a.length<6){er.textContent='Debe tener al menos 6 caracteres.';return;}
+  if(a!==b){er.textContent='Las dos contraseñas no coinciden.';return;}
+  if(/^\d{6}$/.test(a)){er.textContent='No uses solo 6 números: combina letras y números.';return;}
+  const u=user;
+  u.updatePassword(a).then(()=>db.collection('cuentas').doc(u.uid).set({activar:false,activada:FV()},{merge:true}))
+    .then(()=>{cuenta.activar=false;toast('¡Listo! Tu contraseña quedó guardada.');loadMemb(u);})
+    .catch(x=>{er.textContent=x&&x.code==='auth/requires-recent-login'?'Cierra sesión y vuelve a entrar con tu código.':'No se pudo guardar. Inténtalo otra vez.';});
+},true);
+
+/* ---------- Recepción: registrar socios y crear sus cuentas ---------- */
+let recSel=null,recNew=false,recQ='';
+function rerender(){if(!VREC.hidden)renderRec();else if(view==='detail')renderDetail();else renderAdmin();}
+function accountStatus(m){
+  const acc=A.usuarios.find(x=>x.socioId===m.id);
+  return `<div class="panel mt acc"><h2>Cuenta de la app</h2><p class="sub" style="margin:0">${acc?`El socio entra con el usuario <b>${esc(acc.id)}</b>.`:'Este socio aún no tiene cuenta.'} Las cuentas se crean y se cambian en la página de <b>Recepción</b>.</p></div>`;
+}
+const recHead=right=>`<header class="brand"><img class="logo" alt="" src="${logoSrc}"><span class="word">AROM GYM</span><span class="tag">Recepción</span><span class="grow"></span>${right||''}</header>`;
+function renderRec(){
+  if(!auth){VREC.innerHTML=recHead()+'<div class="panel lock"><p class="sub" style="margin:0">No se pudo conectar. Revisa tu conexión.</p></div>';return;}
+  if(!user){VREC.innerHTML=recHead()+`<form class="panel lock" id="rlogin" novalidate><h2>Recepción</h2><p class="sub">Inicia sesión con la cuenta del personal para registrar socios y crear sus cuentas.</p>
+      <div class="form"><div class="field full"><label for="r-mail">Correo</label><input type="email" id="r-mail" autocomplete="username"></div>
+      <div class="field full"><label for="r-pass">Contraseña</label><input type="password" id="r-pass" autocomplete="current-password"></div>
+      <p class="err full" id="r-err" role="alert" style="margin:0"></p><div class="full"><button class="btn" type="submit" style="width:100%">Entrar</button></div></div>
+      <div class="orline"><span>o</span></div><button class="btn gbtn" type="button" data-act="staffgoogle">${GLOGO}<span>Entrar con Google</span></button></form>`;return;}
+  if(!staffKnown){VREC.innerHTML=recHead()+'<div class="panel lock"><p class="sub" style="margin:0">Comprobando acceso…</p></div>';return;}
+  if(!isStaffUser){VREC.innerHTML=recHead()+`<div class="panel lock"><h2>Recepción</h2><p class="sub">La cuenta <b>${esc(user.email)}</b> no es del personal de AROM GYM.</p><button class="btn ghost" type="button" data-act="logout">Usar otra cuenta</button></div>`;return;}
+  if(!ready){VREC.innerHTML=recHead()+'<div class="panel lock"><p class="sub" style="margin:0">Cargando socios…</p></div>';return;}
+  const conCta=A.socios.filter(m=>A.usuarios.some(x=>x.socioId===m.id)).length;
+  const qq=recQ.trim().toLowerCase(),qd=recQ.replace(/\D/g,'');
+  const rows=A.socios.filter(m=>!qq||(m.nombre+' '+m.apellido).toLowerCase().includes(qq)||(qd.length>=3&&String(m.codigo||'').startsWith(qd)))
+    .sort((a,b)=>(a.nombre+a.apellido).localeCompare(b.nombre+b.apellido,'es')).slice(0,40);
+  const sel=recSel&&getS(recSel);
+  let right='';
+  if(recNew){const t=iso(today());right=`<form class="panel" id="recnew" novalidate><h2>Registrar socio nuevo</h2><p class="sub">Después de guardarlo podrás crear su cuenta.</p>
+    <div class="form">
+      <div class="field"><label for="rn-nom">Nombres</label><input type="text" id="rn-nom" maxlength="40"></div>
+      <div class="field"><label for="rn-ape">Apellidos</label><input type="text" id="rn-ape" maxlength="50"></div>
+      <div class="field"><label for="rn-tel">Celular</label><input type="text" id="rn-tel" inputmode="tel" maxlength="15"></div>
+      <div class="field"><label for="rn-mail">Gmail (opcional)</label><input type="email" id="rn-mail" maxlength="80"></div>
+      <div class="field"><label for="rn-plan">Duración</label><select id="rn-plan">${planOpts('men')}</select></div>
+      <div class="field"><label for="rn-ini">Fecha de matrícula</label><input type="date" id="rn-ini" value="${t}"></div>
+      <div class="field"><label for="rn-fin">Fecha de vencimiento</label><input type="date" id="rn-fin" value="${addMonths(t,1)}"></div>
+      <div class="field"><label for="rn-monto">Monto cobrado (S/)</label><input type="number" id="rn-monto" min="0" step="0.5" inputmode="decimal"></div>
+      <div class="field"><label for="rn-medio">Medio de pago</label><select id="rn-medio">${medioOpts()}</select></div>
+      <p class="err full" id="rn-err" role="alert" style="margin:0"></p>
+      <div class="full actions" style="margin:0"><button class="btn" type="submit">Registrar socio</button><button class="btn ghost" type="button" data-act="recnewcancel">Cancelar</button></div>
+    </div></form>`;}
+  else if(sel){const e=estado(sel);curId=sel.id;right=`<div class="panel"><div class="sband b-${e.cls}"><span class="label">Membresía</span><b>${e.lab}</b></div>
+      <h2 class="dname">${esc(sel.nombre+' '+sel.apellido)}</h2><p class="sub" style="margin:0">Plan ${planName(sel.plan)}${sel.codigo?' · Código '+fmtCode(sel.codigo):''}${sel.telefono?' · Cel. '+esc(sel.telefono):''}</p>
+      <div class="bigdays ${e.cls}"><b>${e.k==='venc'?-e.left:e.left}</b><span>${e.k==='venc'?(e.left===-1?'día vencido':'días vencido'):e.k==='pend'?'días de membresía (aún no empieza)':(e.left===1?'día restante':'días restantes')}</span></div>
+      ${datesBlock(sel,e)}</div>
+      ${accountBlock(sel)}`;}
+  else right=`<div class="panel recempty"><h2>Elige un socio</h2><p class="sub" style="margin:0">Búscalo en la lista para crear su cuenta o darle una contraseña nueva. Si es nuevo, regístralo primero.</p></div>`;
+  VREC.innerHTML=recHead(`<button class="btn ghost sm" type="button" data-act="logout">Cerrar sesión</button>`)+`
+  <div class="stats"><div class="stat"><b>${A.socios.length}</b><small>Socios</small></div><div class="stat"><b style="color:var(--ok)">${conCta}</b><small>Con cuenta en la app</small></div><div class="stat"><b style="color:var(--carb)">${A.socios.length-conCta}</b><small>Sin cuenta</small></div><div class="stat"><b>${A.socios.filter(m=>{const k=estado(m).k;return k==='act'||k==='pron'||k==='pend';}).length}</b><small>Membresías vigentes</small></div></div>
+  <div class="grid2 mt recgrid">
+    <div class="panel"><div class="toolbar" style="margin:0 0 12px"><input type="search" id="rq" placeholder="Buscar por nombre o código" aria-label="Buscar socio" value="${esc(recQ)}"><button class="btn" type="button" data-act="recnew">+ Socio nuevo</button></div>
+      <ul class="slist" id="rlist">${rows.length?rows.map(m=>{const acc=A.usuarios.find(x=>x.socioId===m.id),e=estado(m);
+        return `<li><button type="button" class="srow rrow${m.id===recSel?' on':''}" data-act="recsel" data-id="${m.id}"><span class="av">${esc(((m.nombre[0]||'')+(m.apellido[0]||'')).toUpperCase())}</span><span class="sn"><b>${esc(m.nombre+' '+m.apellido)}</b><small>${acc?'Cuenta: '+esc(acc.id):'Sin cuenta'}</small></span><span class="st ${acc?'ok':'warn'}">${acc?'Con cuenta':'Sin cuenta'}</span><span class="dl rdl ${e.cls}"><b>${e.k==='venc'?0:e.left}</b><small>${e.k==='venc'?'vencido':(e.left===1?'día':'días')}</small></span></button></li>`;}).join(''):'<li class="empty">No se encontró ningún socio.</li>'}</ul></div>
+    <div class="stack">${right}</div>
+  </div>
+`;
 }
 
 /* ---------- Navegación ---------- */
 function route(){
-  const h=location.hash, isSoc=h.indexOf('#socio=')===0, isAdm=h==='#personal';
-  $('#v-app').hidden=isSoc||isAdm; VA.hidden=!isAdm; $('#v-socio').hidden=!isSoc;
+  const h=location.hash, isSoc=h.indexOf('#socio=')===0, isAdm=h==='#personal', isRec=h==='#recepcion';
+  $('#v-app').hidden=isSoc||isAdm||isRec; VA.hidden=!isAdm; $('#v-socio').hidden=!isSoc; VREC.hidden=!isRec;
+  if(isRec) renderRec();
   if(isSoc) renderSocio(decodeURIComponent(h.slice(7)));
   if(isAdm) renderAdmin();
   scrollTo(0,0);
