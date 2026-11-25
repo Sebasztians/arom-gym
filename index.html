@@ -370,6 +370,9 @@ input[readonly]{opacity:.65;cursor:default}
 .adjb{background:transparent;border:1px solid var(--line);color:var(--ink,inherit);border-radius:8px;min-height:34px;padding:0 8px;font:600 13px/1 inherit;cursor:pointer}
 .adjb:hover{border-color:var(--accent)}
 .kprice{flex-wrap:wrap}
+.repbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin:-4px 0 14px}
+.repbar>span{color:var(--muted);font-size:13px;font-weight:600;margin-right:auto}
+@media (max-width:480px){.repbar .btn{flex:1}}
 </style>
 </head>
 <body>
@@ -837,6 +840,103 @@ function renderAvisos(){
   <p class="fine mt">Al tocar “Avisar por WhatsApp” se abre WhatsApp con el mensaje listo; solo presiona enviar. El socio queda marcado como avisado hasta que renueve.</p>`;
 }
 
+
+/* ---------- Reporte del día (Excel / PDF) ---------- */
+const LIBS={xlsx:['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'],pdf:['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js']};
+const libP={};
+function loadScript(u){return libP[u]||(libP[u]=new Promise((ok,ko)=>{const sc=document.createElement('script');sc.src=u;sc.onload=ok;sc.onerror=()=>{delete libP[u];ko(new Error('lib'));};document.head.appendChild(sc);}));}
+async function loadLibs(k){for(const u of LIBS[k])await loadScript(u);}
+function reportData(d){
+  const rec=A.inv[d]||{},ap=rec.apertura||null,ci=rec.cierre||null,ing=rec.ingresos||{},sal=rec.salidas||{},salLog=rec.salidasLog||[];
+  const tipoLab={matricula:'Matrícula',renovacion:'Renovación',producto:'Producto',otro:'Otro ingreso'};
+  const quien=(socioId,cliente)=>{const m=socioId&&getS(socioId);return m?socName(m):(cliente||'Sin socio');};
+  const ventas=[
+    ...A.pagos.filter(x=>x.fecha===d).map(x=>{const cant=+x.cant||1,tot=+x.monto||0,pu=x.precio!=null?+x.precio:tot/cant;
+      return {hora:x.hora||'',tipo:tipoLab[x.tipo]||'Otro',concepto:x.tipo==='otro'?(x.base||x.concepto):x.concepto,cant,pu,lista:x.precioLista!=null?+x.precioLista:null,total:tot,medio:MEDIOS[x.medio]||'',cliente:(x.socioId||x.cliente)?quien(x.socioId,x.cliente):'',nota:x.nota||'',medioK:x.medio,tipoK:x.tipo};}),
+    ...A.compras.filter(x=>x.fecha===d).map(x=>({hora:x.hora||'',tipo:'Producto',concepto:x.nombre,cant:x.cant,pu:x.precio,lista:x.precioLista!=null?+x.precioLista:null,total:x.precio*x.cant,medio:MEDIOS[x.medio]||'Efectivo',cliente:quien(x.socioId,x.cliente),nota:x.nota||'',medioK:x.medio||'efe',tipoK:'producto'}))
+  ].sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
+  ventas.forEach(v=>{v.ajuste=v.lista!=null?r2((v.pu-v.lista)*v.cant):0;});
+  const sum=f=>r2(ventas.filter(f).reduce((a,b)=>a+b.total,0));
+  const res={total:sum(()=>true),efe:sum(v=>v.medioK==='efe'),yap:sum(v=>v.medioK==='yap'),memb:sum(v=>v.tipoK==='matricula'||v.tipoK==='renovacion'),prod:sum(v=>v.tipoK==='producto'),otro:sum(v=>v.tipoK==='otro'),
+    desc:r2(ventas.reduce((a,v)=>a+(v.ajuste<0?-v.ajuste:0),0)),aum:r2(ventas.reduce((a,v)=>a+(v.ajuste>0?v.ajuste:0),0)),n:ventas.length,
+    unid:A.compras.filter(x=>x.fecha===d).reduce((a,b)=>a+b.cant,0),
+    estado:ci?'Cerrado'+(rec.cerradoHora?' a las '+rec.cerradoHora:''):ap?'Abierto (sin cerrar)':'Sin abrir',
+    abrio:rec.abiertoHora||'',cerro:rec.cerradoHora||'',cerroPor:rec.cerradoPor||''};
+  const otros=Object.keys(MEDIOS).filter(k=>k!=='efe'&&k!=='yap');res.otrosMedios=otros.map(k=>[MEDIOS[k],sum(v=>v.medioK===k)]).filter(x=>x[1]);
+  const vend={};A.compras.filter(x=>x.fecha===d).forEach(v=>vend[v.pid]=(vend[v.pid]||0)+v.cant);
+  const prods=A.productos.filter(p=>tracked(p)||(ap&&ap[p.id]!=null)||vend[p.id]||ing[p.id]||sal[p.id]);
+  const stock=prods.map(p=>{const a=ap&&ap[p.id]!=null?ap[p.id]:null,i=ing[p.id]||0,v=vend[p.id]||0,x=sal[p.id]||0;
+    const esp=a!=null?a+i-v-x:null,c=ci&&ci[p.id]!=null?ci[p.id]:null,dif=c!=null&&esp!=null?c-esp:null;
+    return {nombre:p.nombre,ap:a,ing:i,vend:v,sal:x,esp,cierre:c,actual:d===iso(today())&&tracked(p)?p.stock:null,dif,estado:dif==null?'':dif===0?'Cuadra':dif<0?'Faltan '+(-dif):'Sobran '+dif};});
+  const salidas=salLog.map(x=>{const p=A.productos.find(q=>q.id===x.pid);return {hora:x.hora||'',nombre:p?p.nombre:(x.nombre||''),cant:x.cant,motivo:MOTIVOS[x.mot||x.motivo]||x.mot||x.motivo||'',nota:x.nota||''};});
+  return {d,res,ventas,stock,salidas};
+}
+const fechaLarga=d=>parse(d).toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+const ajTxt=v=>v.ajuste?(v.ajuste<0?'Descuento ':'Aumento ')+soles(Math.abs(v.ajuste)):'';
+async function reporteExcel(d){
+  toast('Preparando el Excel…');
+  try{await loadLibs('xlsx');}catch(e){toast('No se pudo preparar el archivo. Revisa tu conexión a internet.');return;}
+  const R=reportData(d),r=R.res,X=window.XLSX,wb=X.utils.book_new();
+  const res=[['AROM GYM · Reporte del día'],[fechaLarga(d)],[],['Estado del día',r.estado],['Abrió',r.abrio||'—'],['Cerró',r.cerro?r.cerro+(r.cerroPor?' ('+r.cerroPor+')':''):'—'],[],
+    ['Total del día',r.total],['Efectivo',r.efe],['Yape / Plin',r.yap],...r.otrosMedios,[],['Membresías',r.memb],['Productos',r.prod],['Otros ingresos',r.otro],[],
+    ['Descuentos dados',r.desc],['Aumentos cobrados',r.aum],['Movimientos',r.n],['Unidades de productos vendidas',r.unid]];
+  const s1=X.utils.aoa_to_sheet(res);s1['!cols']=[{wch:30},{wch:24}];
+  for(let i=7;i<res.length;i++){const c=s1['B'+(i+1)];if(c&&typeof c.v==='number'&&!/Movimientos|Unidades/.test(res[i][0]))c.z='"S/ "#,##0.00';}
+  X.utils.book_append_sheet(wb,s1,'Resumen');
+  const vh=['Hora','Tipo','Producto / concepto','Cant.','Precio c/u (S/)','Precio de lista (S/)','Descuento / aumento (S/)','Total (S/)','Forma de pago','Cliente','Nota'];
+  const s2=X.utils.aoa_to_sheet([vh,...R.ventas.map(v=>[v.hora,v.tipo,v.concepto,v.cant,r2(v.pu),v.lista!=null?v.lista:'',v.ajuste||'',r2(v.total),v.medio,v.cliente,v.nota]),[],['','','TOTAL','','','','',r.total]]);
+  s2['!cols']=[8,13,30,6,14,16,20,12,14,26,30].map(w=>({wch:w}));
+  X.utils.book_append_sheet(wb,s2,'Ventas');
+  const sh=['Producto','Al abrir','Entró','Vendido','Salidas','Debería quedar','Contado al cerrar','Diferencia','Estado'];
+  if(d===iso(today()))sh.splice(6,0,'Stock ahora');
+  const s3=X.utils.aoa_to_sheet([sh,...R.stock.map(x=>{const row=[x.nombre,x.ap??'',x.ing||'',x.vend||'',x.sal||'',x.esp??''];if(d===iso(today()))row.push(x.actual??'');row.push(x.cierre??'',x.dif??'',x.estado);return row;})]);
+  s3['!cols']=[{wch:28},...sh.slice(1).map(()=>({wch:14}))];
+  X.utils.book_append_sheet(wb,s3,'Stock');
+  if(R.salidas.length){const s4=X.utils.aoa_to_sheet([['Hora','Producto','Cantidad','Motivo','Detalle'],...R.salidas.map(x=>[x.hora,x.nombre,x.cant,x.motivo,x.nota])]);s4['!cols']=[8,28,10,22,34].map(w=>({wch:w}));X.utils.book_append_sheet(wb,s4,'Salidas');}
+  X.writeFile(wb,'AROM-GYM-reporte-'+d+'.xlsx');
+}
+const pdfT=t=>String(t==null?'':t).replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/−/g,'-').replace(/×/g,'x').replace(/…/g,'...').replace(/·/g,'-').replace(/[^\x00-\xFF]/g,'');
+async function reportePDF(d){
+  toast('Preparando el PDF…');
+  try{await loadLibs('pdf');}catch(e){toast('No se pudo preparar el archivo. Revisa tu conexión a internet.');return;}
+  const R=reportData(d),r=R.res,doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),W=doc.internal.pageSize.getWidth();
+  const Y='#121208',AC=[227,222,42];
+  doc.setFillColor(18,18,8);doc.rect(0,0,W,26,'F');doc.setTextColor(...AC);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('AROM GYM',14,12);
+  doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','normal');doc.text(pdfT('Reporte del día - '+fechaLarga(d)),14,20);
+  doc.setFontSize(9);doc.text(pdfT(r.estado),W-14,12,{align:'right'});
+  doc.setTextColor(0,0,0);
+  const head={fillColor:[18,18,8],textColor:AC,fontStyle:'bold'},sty={font:'helvetica',fontSize:9,cellPadding:1.8},alt={fillColor:[246,246,240]};
+  let y=34;
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Resumen de caja',14,y);
+  doc.autoTable({startY:y+3,theme:'grid',styles:sty,headStyles:head,margin:{left:14,right:W/2+4},
+    head:[['Concepto','Monto']],body:[['Total del día',soles(r.total)],['Efectivo',soles(r.efe)],['Yape / Plin',soles(r.yap)],...r.otrosMedios.map(x=>[x[0],soles(x[1])])].map(x=>x.map(pdfT)),
+    columnStyles:{1:{halign:'right'}},didParseCell:c=>{if(c.section==='body'&&c.row.index===0){c.cell.styles.fontStyle='bold';}}});
+  const yA=doc.lastAutoTable.finalY;
+  doc.autoTable({startY:y+3,theme:'grid',styles:sty,headStyles:head,margin:{left:W/2+4,right:14},
+    head:[['Por tipo','Monto']],body:[['Membresías',soles(r.memb)],['Productos',soles(r.prod)],['Otros ingresos',soles(r.otro)],['Descuentos dados',soles(r.desc)],['Aumentos cobrados',soles(r.aum)],['Unidades vendidas',String(r.unid)]].map(x=>x.map(pdfT)),columnStyles:{1:{halign:'right'}}});
+  y=Math.max(yA,doc.lastAutoTable.finalY)+9;
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(pdfT('Ventas y cobros ('+r.n+')'),14,y);
+  doc.autoTable({startY:y+3,theme:'striped',styles:{...sty,fontSize:8.5},headStyles:head,alternateRowStyles:alt,margin:{left:14,right:14},
+    head:[['Hora','Tipo','Detalle','Cant','C/u','Ajuste','Total','Pago','Cliente / nota']],
+    body:R.ventas.length?R.ventas.map(v=>[v.hora,v.tipo,v.concepto,String(v.cant),soles(v.pu),ajTxt(v),soles(v.total),v.medio,[v.cliente,v.nota?'"'+v.nota+'"':''].filter(Boolean).join(' - ')].map(pdfT)):[['','','No hubo ventas este día.','','','','','','']],
+    foot:[['','','TOTAL','','','',pdfT(soles(r.total)),'','']],footStyles:{fillColor:[235,235,225],textColor:[0,0,0],fontStyle:'bold'},showFoot:'lastPage',
+    columnStyles:{0:{cellWidth:13},1:{cellWidth:21},2:{cellWidth:'auto'},3:{halign:'right',cellWidth:11},4:{halign:'right',cellWidth:17},5:{cellWidth:24},6:{halign:'right',fontStyle:'bold',cellWidth:19},7:{cellWidth:17},8:{cellWidth:32}}});
+  y=doc.lastAutoTable.finalY+9;if(y>260){doc.addPage();y=18;}
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Stock del día',14,y);
+  const today_=d===iso(today());
+  doc.autoTable({startY:y+3,theme:'striped',styles:sty,headStyles:head,alternateRowStyles:alt,margin:{left:14,right:14},
+    head:[['Producto','Al abrir','Entró','Vendido','Salidas','Debería quedar',...(today_?['Stock ahora']:[]),'Contado al cerrar','Estado']],columnStyles:{0:{cellWidth:44},[today_?8:7]:{cellWidth:24}},
+    body:R.stock.length?R.stock.map(x=>[x.nombre,x.ap??'-',x.ing?'+'+x.ing:'-',x.vend?'-'+x.vend:'-',x.sal?'-'+x.sal:'-',x.esp??'-',...(today_?[x.actual??'-']:[]),x.cierre??'-',x.estado||(x.cierre==null?'Sin cerrar':'')].map(pdfT)):[['No hay productos con stock.','','','','','','','']],
+    didParseCell:c=>{if(c.section==='body'&&c.column.index===c.table.columns.length-1){const t=String(c.cell.raw);if(t.startsWith('Faltan'))c.cell.styles.textColor=[200,30,30];else if(t.startsWith('Sobran'))c.cell.styles.textColor=[190,110,0];else if(t==='Cuadra')c.cell.styles.textColor=[20,130,60];}}});
+  if(R.salidas.length){y=doc.lastAutoTable.finalY+9;if(y>268){doc.addPage();y=18;}
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Salidas sin venta',14,y);
+    doc.autoTable({startY:y+3,theme:'striped',styles:sty,headStyles:head,alternateRowStyles:alt,margin:{left:14,right:14},head:[['Hora','Producto','Cant.','Motivo','Detalle']],body:R.salidas.map(x=>[x.hora,x.nombre,String(x.cant),x.motivo,x.nota].map(pdfT))});}
+  const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(120);
+    doc.text(pdfT('Generado el '+new Date().toLocaleString('es-PE')+(user&&user.email?' por '+user.email:'')),14,290);doc.text('Página '+i+' de '+n,W-14,290,{align:'right'});}
+  doc.save('AROM-GYM-reporte-'+d+'.pdf');
+}
+const repBtns=d=>`<div class="repbar"><span>Descargar reporte del día</span><button type="button" class="btn ghost sm" data-act="repxls" data-d="${d}">Excel</button><button type="button" class="btn ghost sm" data-act="reppdf" data-d="${d}">PDF</button></div>`;
+
 /* ---------- Caja del día ---------- */
 let cajaDia=null;
 function renderCaja(){
@@ -851,6 +951,7 @@ function renderCaja(){
   const tipoLab={matricula:'Matrícula',renovacion:'Renovación',producto:'Producto',otro:'Otro'};
   $('#a-body').innerHTML=`
   <div class="datenav"><button type="button" data-act="cprev" aria-label="Día anterior">‹</button><strong>${isHoy?'Hoy, ':''}${parse(d).toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long'})}</strong><button type="button" data-act="cnext" aria-label="Día siguiente" ${isHoy?'disabled':''}>›</button></div>
+  ${repBtns(d)}
   <div class="stats" style="margin-top:0">
     <div class="stat"><b style="color:var(--accent)">${soles(tot)}</b><small>Total del día</small></div>
     <div class="stat"><b>${soles(efe)}</b><small>Efectivo</small></div>
@@ -1120,10 +1221,11 @@ function renderInv(){
         <div class="full"><button class="btn ghost" type="submit">Registrar salida</button></div></div></form>
       </div>
     </div>`+countForm('closef','Cerrar el día','Al terminar, cuenta cuánto quedó de cada producto. La app lo compara con lo que debería haber.','Cerrar día',p=>tracked(p)?p.stock:'');
-    else acciones=`<div class="panel"><p class="sub" style="margin:0">El día ya está cerrado${rec.cerradoPor?' por '+esc(rec.cerradoPor):''}${rec.cerradoHora?' a las '+esc(rec.cerradoHora):''}. Si te equivocaste al contar, puedes <button type="button" class="linkbtn" data-act="reclose">deshacer el cierre</button> y volver a contar.</p></div>`;
+    else acciones=`<div class="panel"><p class="sub" style="margin:0">El día ya está cerrado${rec.cerradoPor?' por '+esc(rec.cerradoPor):''}${rec.cerradoHora?' a las '+esc(rec.cerradoHora):''}. Descarga el reporte con los botones de arriba (Excel o PDF). Si te equivocaste al contar, puedes <button type="button" class="linkbtn" data-act="reclose">deshacer el cierre</button> y volver a contar.</p></div>`;
   }
   $('#a-body').innerHTML=`
   <div class="datenav"><button type="button" data-act="iprev" aria-label="Día anterior">‹</button><strong>${isHoy?'Hoy, ':''}${parse(d).toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long'})}</strong><button type="button" data-act="inext" aria-label="Día siguiente" ${isHoy?'disabled':''}>›</button></div>
+  ${repBtns(d)}
   <div class="stats" style="margin-top:0">
     <div class="stat"><b><span class="st ${estadoDia[1]}">${estadoDia[0]}</span></b><small>Estado del día${rec.abiertoHora?' · abrió '+esc(rec.abiertoHora):''}</small></div>
     <div class="stat"><b>${un}</b><small>Unidades vendidas</small></div>
@@ -1265,6 +1367,8 @@ ON('click',e=>{
       const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));download(url,'clientes-arom-gym.csv');setTimeout(()=>URL.revokeObjectURL(url),4000);break;}
     case 'kadd': cartAdd($('#k-prod').value,parseInt($('#k-cant').value,10));$('#k-cant').value='1';break;
     case 'kaddo': cartAddOtro();break;
+    case 'repxls': reporteExcel(b.dataset.d);break;
+    case 'reppdf': reportePDF(b.dataset.d);break;
     case 'kadj': {const l=cart[+b.dataset.i];if(l){l.precio=Math.max(0,r2(l.precio+parseFloat(b.dataset.d)));renderCart();}break;}
     case 'kplus': {const l=cart[+b.dataset.i];if(l){if(l.otro){l.cant++;renderCart();}else cartAdd(l.pid,1);}break;}
     case 'kminus': {const l=cart[+b.dataset.i];if(l){l.cant--;if(l.cant<1)cart.splice(+b.dataset.i,1);renderCart();}break;}
