@@ -373,6 +373,81 @@ input[readonly]{opacity:.65;cursor:default}
 .repbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin:-4px 0 14px}
 .repbar>span{color:var(--muted);font-size:13px;font-weight:600;margin-right:auto}
 @media (max-width:480px){.repbar .btn{flex:1}}
+/* ---- Venta rápida (rediseño) ---- */
+.venta{display:grid;gap:14px}
+.venta>.panel{margin:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;margin-bottom:14px}
+.tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;min-height:84px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--sunken);color:var(--ink);font:inherit;cursor:pointer;transition:border-color .15s,transform .1s}
+.tile:hover{border-color:var(--accent)}
+.tile:active{transform:scale(.97)}
+.tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tile b{font-weight:600;font-size:15px;line-height:1.25;padding-right:26px}
+.tile .tp{color:var(--accent);font-weight:600}
+.tile small{color:var(--muted);font-size:12px}
+.tile.sel{border-color:var(--accent);background:var(--accent-soft)}
+.tile.out{opacity:.45}
+.tile .tn{position:absolute;top:8px;right:8px;min-width:24px;height:24px;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:13px;display:grid;place-items:center;padding:0 6px}
+.vtiles .addline.otro{margin-top:0}
+.vticket{display:flex;flex-direction:column;gap:12px}
+.vticket .tk-h{margin:0;font-family:var(--display);text-transform:uppercase;letter-spacing:.02em;font-size:22px}
+.vticket .buys.cart{margin:0}
+.vticket .ktotal{margin:0}
+.vticket .kdif{margin:-6px 0 0}
+.vticket .field{margin:0}
+.vticket #k-pay{width:100%;min-height:52px;font-size:17px}
+.paygrp{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px}
+.paybtn{min-height:48px;border-radius:10px;border:1px solid var(--line);background:var(--sunken);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+.paybtn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.paybtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (min-width:900px){
+  .venta.wide{grid-template-columns:minmax(0,1.45fr) minmax(320px,1fr);align-items:start}
+  .venta.wide .vticket{position:sticky;top:84px}
+}
+/* ---- Barra de pestañas abajo en celular ---- */
+.seg.seg5 button .ico{display:none}
+@media (max-width:680px){
+  #a-main .tabs{position:fixed;left:0;right:0;bottom:0;top:auto;margin:0;padding:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+  #a-main .tabs .seg.seg5{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));overflow:visible;border:0;border-radius:0;background:transparent;padding:4px 2px;gap:0}
+  #a-main .tabs .seg.seg5 button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0 4px;font-size:10.5px;min-height:56px;border-radius:10px;position:relative;white-space:nowrap;background:transparent}
+  #a-main .tabs .seg.seg5 button .ico{display:block;width:22px;height:22px}
+  #a-main .tabs .seg.seg5 button[aria-selected=true]{background:transparent;color:var(--accent)}
+  #a-main .tabs .seg.seg5 button .badge{position:absolute;top:2px;left:calc(50% + 6px);transform:scale(.85)}
+  #a-main{padding-bottom:84px}
+}
+.kfloat{display:none}
+@media (max-width:680px){
+  .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+  .venta .kfloat:not([hidden]){display:flex;position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:25;justify-content:space-between;align-items:center;gap:10px;min-height:50px;padding:0 16px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+  .vticket{scroll-margin-top:12px}
+}
+.kfloat.gone{display:none!important}
+/* ---- Página del cliente (rediseño) ---- */
+.inbox[hidden]{display:none!important}
+.cmain{display:grid;gap:22px}
+.cqrbox{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
+.cqrbox .qr{width:min(250px,78vw);padding:8px;background:#fff;border-radius:14px}
+.cqrbox .pcode{margin:0;font-size:40px}
+.cchip{display:flex;align-items:baseline;justify-content:space-between;gap:10px;width:100%;padding:10px 14px;border-radius:10px;color:#0D0D0B}
+.cchip span{font-family:var(--display);font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;line-height:1}
+.cchip small{font-weight:600;font-size:13px;opacity:.8}
+.c-ok{background:var(--ok)} .c-warn{background:var(--carb)} .c-bad{background:var(--bad)} .c-pend{background:var(--muted)}
+.cinfo .cplan{margin:2px 0 0;font-family:var(--display);text-transform:uppercase;font-size:28px;letter-spacing:.02em}
+.crenew{margin-top:14px}
+.btn.wa{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;background:#1FA855;color:#fff;border-color:#1FA855;text-decoration:none}
+.btn.wa:hover{background:#18924A}
+.clinks{margin-top:18px;border-top:1px solid var(--line)}
+.crow{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:50px;padding:10px 2px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+div.crow{cursor:default}
+.crow .chev{color:var(--muted);font-size:20px}
+.crow.out{color:var(--muted);border-bottom:0}
+.crow.chk input{width:22px;height:22px;accent-color:var(--accent)}
+.clinks .inbox{margin:10px 0}
+@media (min-width:760px){
+  .cmain{grid-template-columns:auto minmax(0,1fr);gap:32px;align-items:start}
+  .cqrbox{width:270px}
+}
+.cchip{flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center}
+.cchip span{font-size:24px}
 </style>
 </head>
 <body>
@@ -407,12 +482,12 @@ input[readonly]{opacity:.65;cursor:default}
   <section id="a-wait" class="panel lock"><p class="sub" style="margin:0">Conectando con AROM GYM…</p></section>
   <section id="a-main" hidden>
     <nav class="tabs"><div class="seg seg5" role="tablist">
-      <button role="tab" type="button" data-at="socios" id="at-socios">Socios</button>
-      <button role="tab" type="button" data-at="avisos" id="at-avisos">Avisos</button>
-      <button role="tab" type="button" data-at="caja" id="at-caja">Caja</button>
-      <button role="tab" type="button" data-at="inv" id="at-inv">Inventario</button>
-      <button role="tab" type="button" data-at="prods" id="at-prods">Productos</button>
-      <button role="tab" type="button" data-at="ajustes" id="at-ajustes">Ajustes</button>
+      <button role="tab" type="button" data-at="socios" id="at-socios"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.4.1 4.2 1.7 4.8 4.8"/></svg><span class="tl">Socios</span></button>
+      <button role="tab" type="button" data-at="avisos" id="at-avisos"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="tl">Avisos</span></button>
+      <button role="tab" type="button" data-at="caja" id="at-caja"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6.5 9.5v.01M17.5 14.5v.01"/></svg><span class="tl">Caja</span></button>
+      <button role="tab" type="button" data-at="inv" id="at-inv"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span class="tl">Inventario</span></button>
+      <button role="tab" type="button" data-at="prods" id="at-prods"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16l-1.5 12a2 2 0 0 1-2 1.8h-9a2 2 0 0 1-2-1.8z"/><path d="M9 7V5.5a3 3 0 0 1 6 0V7"/></svg><span class="tl">Productos</span></button>
+      <button role="tab" type="button" data-at="ajustes" id="at-ajustes"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg><span class="tl">Ajustes</span></button>
     </div></nav>
     <div id="a-body"></div>
   </section>
@@ -618,9 +693,9 @@ function renderAdmin(){
     else {view='list';renderSocios();}
   } else if(tab==='avisos') renderAvisos(); else if(tab==='caja') renderCaja(); else if(tab==='inv') renderInv(); else if(tab==='prods') renderProds(); else renderAjustes();
   const nav=A.socios.filter(m=>{const k=estado(m).k;return (k==='pron'||(k==='venc'&&estado(m).left>=-30))&&m.ultimoAviso!==m.fin;}).length;
-  $('#at-avisos').innerHTML='Avisos'+(nav?` <span class="badge">${nav}</span>`:'');
+  setTabBadge('#at-avisos',nav);
   const low=A.productos.filter(isLow).length;
-  $('#at-inv').innerHTML='Inventario'+(low?` <span class="badge">${low}</span>`:'');
+  setTabBadge('#at-inv',low);
 }
 
 function renderSocios(){
@@ -841,6 +916,7 @@ function renderAvisos(){
 }
 
 
+function setTabBadge(sel,n){const b=$(sel);if(!b)return;let g=b.querySelector('.badge');if(n){if(!g){g=document.createElement('span');g.className='badge';b.appendChild(g);}g.textContent=n;}else if(g)g.remove();}
 /* ---------- Reporte del día (Excel / PDF) ---------- */
 const LIBS={xlsx:['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'],pdf:['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js']};
 const libP={};
@@ -958,7 +1034,7 @@ function renderCaja(){
     <div class="stat"><b>${soles(yap)}</b><small>Yape / Plin</small></div>
     <div class="stat"><b>${movs.length}</b><small>Movimientos</small></div>
   </div>
-  ${isHoy?`<div class="mt">${cartForm()}</div>`:''}
+  ${isHoy?`<div class="mt">${cartForm(true)}</div>`:''}
   <div class="mt">
     <div class="panel"><h2>Movimientos</h2>
       <div class="pills mt0"><span class="pill">Membresías <b>${soles(memb)}</b></span><span class="pill">Productos <b>${soles(prod)}</b></span><span class="pill">Otros <b>${soles(otro)}</b></span></div>
@@ -1059,30 +1135,38 @@ function ventasAgrupadas(d){
     g[k].ids.push(x.id);g[k].items.push(x);g[k].monto+=x.precio*x.cant;if(x.nota)g[k].nota=x.nota;if(x.precioLista!=null){g[k].lista=(g[k].lista||0)+(x.precioLista-x.precio)*x.cant;}});
   return Object.values(g);
 }
-function cartForm(){
+function cartForm(wide){
   const otros=[...new Set(A.pagos.filter(x=>x.tipo==='otro'&&x.concepto).map(x=>x.base||x.concepto))].slice(0,30);
-  return `<form class="panel" id="cartf" novalidate><h2>Registrar venta</h2><p class="sub">Agrega productos u otros cobros (pase diario, clase suelta…), elige la forma de pago y cobra. Para un descuento o un aumento (ej.: agua helada +0.50), cambia el precio de la línea o el precio final. El stock se descuenta solo.</p>
-    ${A.productos.length?`<div class="addline"><div class="field"><label for="k-prod">Producto</label><select id="k-prod">${prodOpts()}</select></div>
-      <div class="field"><label for="k-cant">Cant.</label><input type="number" id="k-cant" value="1" min="1" max="99" inputmode="numeric"></div>
-      <button type="button" class="btn ghost" data-act="kadd">+ Agregar</button></div>`:'<p class="fine">Aún no hay productos. Agrégalos en la pestaña <b>Productos</b>.</p>'}
+  return `<form class="venta${wide?' wide':''}" id="cartf" novalidate>
+  <div class="panel vtiles"><h2>Registrar venta</h2><p class="sub">Toca un producto para agregarlo. En la venta puedes cambiar precios y cantidades.</p>
+    ${A.productos.length?'<div class="tiles" id="k-tiles"></div>':'<p class="fine">Aún no hay productos. Agrégalos en la pestaña <b>Productos</b>.</p>'}
     <div class="addline otro"><div class="field"><label for="k-ocon">Otro ingreso</label><input type="text" id="k-ocon" list="k-otros" maxlength="60" autocomplete="off" placeholder="Ej.: Pase diario">
         <datalist id="k-otros">${otros.map(c=>`<option value="${esc(c)}"></option>`).join('')}</datalist></div>
       <div class="field"><label for="k-omon">Monto (S/)</label><input type="number" id="k-omon" min="0" step="0.5" inputmode="decimal"></div>
       <button type="button" class="btn ghost" data-act="kaddo">+ Agregar</button></div>
+  </div>
+  <button type="button" class="kfloat" id="k-float" data-act="kgo" hidden></button>
+  <div class="panel vticket" id="k-ticket"><h3 class="tk-h">Venta actual</h3>
     <ul class="buys cart" id="k-lines"></ul>
     <div class="ktotal"><label for="k-final">Precio final</label><span class="kfinal">S/ <input type="number" id="k-final" min="0" step="0.1" inputmode="decimal" value="0" aria-describedby="k-dif"></span><b id="k-total" hidden>S/ 0.00</b></div>
     <p class="fine kdif" id="k-dif"></p>
-    <div class="form mt">
-      <div class="field"><label for="k-medio">Forma de pago</label><select id="k-medio">${Object.keys(MEDIOS).map(k=>`<option value="${k}" ${k===cartMedio?'selected':''}>${MEDIOS[k]}</option>`).join('')}</select></div>
-      <div class="field"><label for="k-cli">Cliente</label><input type="text" id="k-cli" list="k-socios" maxlength="60" autocomplete="off" placeholder="Escribe un nombre o elige un socio" value="${esc(cartCli)}">
-        <datalist id="k-socios">${[...A.socios].sort((a,b)=>socName(a).localeCompare(socName(b),'es')).map(m=>`<option value="${esc(socName(m))}"></option>`).join('')}</datalist>
-        <small class="sm2" id="k-clihint"></small></div>
-      <div class="field full"><label for="k-nota">Nota de la venta (opcional)</label><input type="text" id="k-nota" maxlength="80" placeholder="Ej.: descuento por cliente frecuente" value="${esc(cartNota)}"></div>
-      <div class="full"><button class="btn" type="submit" id="k-pay" disabled>Cobrar</button></div>
-    </div></form>`;
+    <div class="paygrp" role="group" aria-label="Forma de pago">${Object.keys(MEDIOS).map(k=>`<button type="button" class="paybtn${k===cartMedio?' on':''}" data-act="kmed" data-m="${k}" aria-pressed="${k===cartMedio}">${MEDIOS[k]}</button>`).join('')}</div>
+    <div class="field"><label for="k-cli">Cliente (opcional)</label><input type="text" id="k-cli" list="k-socios" maxlength="60" autocomplete="off" placeholder="Escribe un nombre o elige un socio" value="${esc(cartCli)}">
+      <datalist id="k-socios">${[...A.socios].sort((a,b)=>socName(a).localeCompare(socName(b),'es')).map(m=>`<option value="${esc(socName(m))}"></option>`).join('')}</datalist>
+      <small class="sm2" id="k-clihint"></small></div>
+    <div class="field"><label for="k-nota">Nota (opcional)</label><input type="text" id="k-nota" maxlength="80" placeholder="Ej.: descuento por cliente frecuente" value="${esc(cartNota)}"></div>
+    <button class="btn" type="submit" id="k-pay" disabled>Cobrar</button>
+  </div></form>`;
+}
+function renderTiles(){
+  const t=$('#k-tiles');if(!t)return;
+  const inCart=pid=>cart.filter(l=>l.pid===pid).reduce((a,l)=>a+l.cant,0);
+  t.innerHTML=A.productos.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(p=>{const n=inCart(p.id),out=tracked(p)&&p.stock-n<=0;
+    return `<button type="button" class="tile${n?' sel':''}${tracked(p)&&p.stock<=0?' out':''}" data-act="ktile" data-pid="${p.id}" aria-label="Agregar ${esc(p.nombre)}, ${soles(p.precio)}${n?', llevas '+n:''}">
+      <b>${esc(p.nombre)}</b><span class="tp">${soles(p.precio)}</span><small>${tracked(p)?(p.stock<=0?'Agotado':'Quedan '+(p.stock-n)):'&nbsp;'}</small>${n?`<span class="tn">${n}</span>`:''}</button>`;}).join('');
 }
 function renderCart(){
-  const ul=$('#k-lines'); if(!ul) return;
+  const ul=$('#k-lines'); if(!ul) return; renderTiles();
   cart=cart.filter(l=>l.otro||A.productos.some(p=>p.id===l.pid));
   let tot=0;
   ul.innerHTML=cart.length?cart.map((l,i)=>{if(l.otro){const sub=l.precio*l.cant;tot+=sub;
@@ -1090,11 +1174,13 @@ function renderCart(){
       <span class="qty"><button type="button" class="xdel" data-act="kminus" data-i="${i}" aria-label="Quitar uno">−</button><b>${l.cant}</b><button type="button" class="xdel" data-act="kplus" data-i="${i}" aria-label="Sumar uno">+</button></span>
       <b id="ksub-${i}">${soles(sub)}</b><button type="button" class="xdel" data-act="kdel" data-i="${i}" aria-label="Quitar ${esc(l.concepto)}">×</button></li>`;}
     const p=A.productos.find(x=>x.id===l.pid);if(l.precio==null)l.precio=p.precio;const sub=l.precio*l.cant;tot+=sub;const aj=ajusteTxt(l.precio,p.precio);
-    return `<li class="kline"><span>${esc(p.nombre)}<span class="kprice"><label class="sm2" for="kp-${i}">S/ c/u</label><input type="number" id="kp-${i}" class="kp" data-i="${i}" value="${r2(l.precio)}" min="0" step="0.1" inputmode="decimal" aria-label="Precio por unidad de ${esc(p.nombre)}"><button type="button" class="adjb" data-act="kadj" data-d="-0.5" data-i="${i}" aria-label="Bajar 50 céntimos">−0.50</button><button type="button" class="adjb" data-act="kadj" data-d="0.5" data-i="${i}" aria-label="Subir 50 céntimos">+0.50</button></span><small class="sm2 kaj ${aj?(l.precio<p.precio?'down':'up'):''}" id="kaj-${i}">${aj||'Precio de lista'}</small></span>
+    return `<li class="kline"><span>${esc(p.nombre)}<span class="kprice"><label class="sm2" for="kp-${i}">S/ c/u</label><input type="number" id="kp-${i}" class="kp" data-i="${i}" value="${r2(l.precio)}" min="0" step="0.1" inputmode="decimal" aria-label="Precio por unidad de ${esc(p.nombre)}"><button type="button" class="adjb" data-act="kadj" data-d="-0.5" data-i="${i}" aria-label="Bajar 50 céntimos">−0.50</button><button type="button" class="adjb" data-act="kadj" data-d="0.5" data-i="${i}" aria-label="Subir 50 céntimos">+0.50</button></span><small class="sm2 kaj ${aj?(l.precio<p.precio?'down':'up'):''}" id="kaj-${i}">${aj||''}</small></span>
       <span class="qty"><button type="button" class="xdel" data-act="kminus" data-i="${i}" aria-label="Quitar uno">−</button><b>${l.cant}</b><button type="button" class="xdel" data-act="kplus" data-i="${i}" aria-label="Sumar uno">+</button></span>
       <b id="ksub-${i}">${soles(sub)}</b><button type="button" class="xdel" data-act="kdel" data-i="${i}" aria-label="Quitar ${esc(p.nombre)}">×</button></li>`;}).join('')
     :'<li class="empty">Aún no agregaste nada.</li>';
   $('#k-total').textContent=soles(tot);const kf=$('#k-final');if(kf){kf.value=r2(tot);kf.disabled=!cart.length;}
+  const fl=$('#k-float');if(fl){const u=cart.reduce((a,l)=>a+l.cant,0);fl.hidden=!cart.length;fl.innerHTML=`<span>${u} ${u===1?'artículo':'artículos'} · <b>${soles(tot)}</b></span><span>Ver venta y cobrar ›</span>`;}
+  const tk=$('#k-ticket');if(tk&&!tk._io&&'IntersectionObserver' in window){tk._io=new IntersectionObserver(en=>{const f=$('#k-float');if(f)f.classList.toggle('gone',en[0].isIntersecting);},{threshold:.2});tk._io.observe(tk);}
   const prodTot=cart.reduce((a,l)=>a+(l.otro?0:l.precio*l.cant),0),lista=cart.reduce((a,l)=>{const p=!l.otro&&A.productos.find(x=>x.id===l.pid);return a+(p?p.precio*l.cant:0);},0),dif=r2(prodTot-lista);
   const kd=$('#k-dif');if(kd)kd.textContent=dif?(dif<0?'Descuento total '+soles(-dif):'Aumento total '+soles(dif))+' · precio de lista '+soles(lista):'';
   cliHint();
@@ -1104,7 +1190,7 @@ function cartPriceInput(i,v){
   const l=cart[i];if(!l)return;const p=l.otro?null:A.productos.find(x=>x.id===l.pid);const n=parseFloat(v);
   l.precio=v===''||!(n>=0)?l.precio:r2(n);
   const sb=$('#ksub-'+i);if(sb)sb.textContent=soles(l.precio*l.cant);
-  const aj=$('#kaj-'+i),t=p?ajusteTxt(l.precio,p.precio):'';if(aj&&p){aj.textContent=t||'Precio de lista';aj.className='sm2 kaj '+(t?(l.precio<p.precio?'down':'up'):'');}
+  const aj=$('#kaj-'+i),t=p?ajusteTxt(l.precio,p.precio):'';if(aj&&p){aj.textContent=t||'';aj.className='sm2 kaj '+(t?(l.precio<p.precio?'down':'up'):'');}
   const tot=cart.reduce((a,x)=>a+(x.precio!=null?x.precio:(A.productos.find(q=>q.id===x.pid)||{}).precio||0)*x.cant,0);
   $('#k-total').textContent=soles(tot);const kf=$('#k-final');if(kf&&document.activeElement!==kf)kf.value=r2(tot);const pay=$('#k-pay');if(pay)pay.textContent='Cobrar '+soles(tot);
   const prodTot=cart.reduce((a,x)=>a+(x.otro?0:x.precio*x.cant),0),lista=cart.reduce((a,x)=>{const q=!x.otro&&A.productos.find(y=>y.id===x.pid);return a+(q?q.precio*x.cant:0);},0),dif=r2(prodTot-lista);
@@ -1367,6 +1453,9 @@ ON('click',e=>{
       const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));download(url,'clientes-arom-gym.csv');setTimeout(()=>URL.revokeObjectURL(url),4000);break;}
     case 'kadd': cartAdd($('#k-prod').value,parseInt($('#k-cant').value,10));$('#k-cant').value='1';break;
     case 'kaddo': cartAddOtro();break;
+    case 'ktile': cartAdd(b.dataset.pid,1);break;
+    case 'kgo': {const t=$('#k-ticket');if(t)t.scrollIntoView({behavior:'smooth',block:'start'});break;}
+    case 'kmed': cartMedio=b.dataset.m;document.querySelectorAll('.paybtn').forEach(x=>{const on=x.dataset.m===cartMedio;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);});break;
     case 'repxls': reporteExcel(b.dataset.d);break;
     case 'reppdf': reportePDF(b.dataset.d);break;
     case 'kadj': {const l=cart[+b.dataset.i];if(l){l.precio=Math.max(0,r2(l.precio+parseFloat(b.dataset.d)));renderCart();}break;}
@@ -1590,25 +1679,45 @@ async function loadMemb(u){
   if(m&&m.nombre) window.dispatchEvent(new CustomEvent('aromgym:cliente',{detail:{nombre:m.nombre}}));
   paintMemb(u,m);
 }
+const GYM_WA=String(window.AROM_WA||'').replace(/\D/g,'');
 function paintMemb(u,m){
   const who=isUserAcc(u)?'@'+esc(userOf(u)):esc(u.email);
   const canNews=!isUserAcc(u)||!!(cuenta&&cuenta.correo);
-  const foot=`<div class="cfoot">${canNews?`<label class="chk sm"><input type="checkbox" id="c-news2" ${clientAcepta?'checked':''}> Recibir novedades de AROM GYM por correo</label>`:'<span class="fine">Para recibir novedades por correo, une tu cuenta con Google.</span>'}
-    <span class="fine">${who}${hasGoogle(u)?' · <span class="st ok">Google unido</span>':` · <button type="button" class="linkbtn" id="c-link">Vincular cuenta de Google</button>`}${isUserAcc(u)?' · <button type="button" class="linkbtn" id="c-pw">Cambiar contraseña</button>':''} · <button type="button" class="linkbtn" id="c-out">Cerrar sesión</button></span></div>
+  const chev='<span class="chev" aria-hidden="true">›</span>';
+  const foot=`<div class="clinks">
+    <div class="crow"><span class="fine">Cuenta</span><span>${who}${hasGoogle(u)?' <span class="st ok">Google unido</span>':''}</span></div>
+    ${hasGoogle(u)?'':`<button type="button" class="crow" id="c-link"><span>Vincular cuenta de Google</span>${chev}</button>`}
+    ${isUserAcc(u)?`<button type="button" class="crow" id="c-pw" aria-expanded="false" aria-controls="c-pwf"><span>Cambiar contraseña</span>${chev}</button>
     <form class="inbox" id="c-pwf" hidden novalidate><div class="form"><div class="field"><label for="c-pw1">Contraseña nueva</label><input type="password" id="c-pw1" autocomplete="new-password"></div><div class="field"><label for="c-pw2">Repítela</label><input type="password" id="c-pw2" autocomplete="new-password"></div></div>
-      <p class="err" id="c-pwerr" role="alert" style="margin:0"></p><div class="actions" style="margin:0"><button class="btn" type="submit">Guardar contraseña</button></div></form>`;
+      <p class="err" id="c-pwerr" role="alert" style="margin:0"></p><div class="actions" style="margin:0"><button class="btn" type="submit">Guardar contraseña</button></div></form>`:''}
+    ${canNews?`<label class="crow chk"><span>Recibir novedades por correo</span><input type="checkbox" id="c-news2" ${clientAcepta?'checked':''}></label>`:'<div class="crow"><span class="fine">Para recibir novedades por correo, une tu cuenta con Google.</span></div>'}
+    <button type="button" class="crow out" id="c-out"><span>Cerrar sesión</span></button>
+  </div>`;
   if(!m){memb.innerHTML=`<div class="label">Mi membresía</div><h2 class="mt0">Sin membresía</h2><p class="sub">Tu cuenta todavía no tiene una membresía asignada. Acércate a recepción y te ayudamos.</p>`+foot;return;}
   const e=estado(m),t=e.k==='venc'?['Venció hace',dias(-e.left)]:e.k==='pend'?['Empieza','pronto']:['Te quedan',dias(e.left)];
-  const msg=e.k==='venc'?'Tu membresía venció. Acércate a recepción para renovar.':e.k==='pron'?(e.left===0?'Tu membresía vence hoy. Renueva para seguir entrenando.':'Te quedan '+dias(e.left)+'. Renueva a tiempo para no perder días.'):e.k==='pend'?'Tu membresía todavía no empieza.':'Estás al día. ¡A entrenar!';
-  memb.innerHTML=`<div class="sband b-${e.cls}"><span class="label">Mi membresía</span><b>${e.lab}</b></div>
-    <div class="dates"><div><span class="label">Inscripción</span><b>${fmt(m.inicio)}</b></div><div><span class="label">Vence</span><b>${fmt(m.fin)}</b></div><div><span class="label">${t[0]}</span><b>${t[1]}</b></div></div>
-    <div class="prog"><i style="width:${e.pct}%;background:${barCol(e.cls)}"></i></div>
-    <p class="fine" style="margin-top:8px">${msg}</p>
-    <div class="cqr"><div class="qr">${qrSvg(linkFor(m))}</div><div><b>Para entrar</b><p class="fine">Muestra este QR en recepción${m.codigo?' o dicta tu código:':'.'}</p>${m.codigo?`<div class="pcode" aria-label="Código personal">${fmtCod(m.codigo)}</div>`:''}<p class="fine">Si no leen el QR, sube el brillo de tu pantalla.</p></div></div>`+foot;
+  const msg=e.k==='venc'?'Tu membresía venció. Renueva para seguir entrenando.':e.k==='pron'?(e.left===0?'Tu membresía vence hoy. Renueva para seguir entrenando.':'Renueva a tiempo para no perder días.'):e.k==='pend'?'Tu membresía todavía no empieza.':'Estás al día. ¡A entrenar!';
+  const chip=e.k==='venc'?'Vencida':e.k==='pend'?'Empieza pronto':e.lab, chipSub=(e.k==='venc'?'Venció el ':e.k==='pend'?'Desde el '+fmtShort(m.inicio)+' · vence el ':'Quedan '+dias(e.left)+' · vence el ')+fmtShort(m.fin);
+  const renew=(e.k==='venc'||e.k==='pron')?(GYM_WA?`<a class="btn wa" href="https://wa.me/${GYM_WA.length===9?'51'+GYM_WA:GYM_WA}?text=${encodeURIComponent('Hola AROM GYM, soy '+m.nombre+'. Quiero renovar mi membresía '+planName(m.plan)+(e.k==='venc'?', venció el ':', vence el ')+fmt(m.fin)+'.')}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10c0 3 2 5 5 5l1.2-1.2-1.8-1-1 .8c-1-.4-1.6-1-2-2l.8-1-1-1.8z"/></svg>Renovar por WhatsApp</a>`:'<p class="fine" style="margin:0">Acércate a recepción para renovar.</p>'):'';
+  memb.innerHTML=`<div class="cmain">
+    <div class="cqrbox">
+      <div class="cchip c-${e.cls}"><span>${esc(chip)}</span><small>${esc(chipSub)}</small></div>
+      <div class="qr">${qrSvg(linkFor(m))}</div>
+      ${m.codigo?`<div class="pcode" aria-label="Código personal">${fmtCod(m.codigo)}</div>`:''}
+      <p class="fine" style="margin:0">Muestra el QR${m.codigo?' o dicta tu código':''} en recepción para entrar.<br>Si no lo leen, sube el brillo de tu pantalla.</p>
+    </div>
+    <div class="cinfo">
+      <div class="label">Mi membresía</div>
+      <h2 class="cplan">${esc(planName(m.plan))}</h2>
+      <div class="dates"><div><span class="label">Inscripción</span><b>${fmt(m.inicio)}</b></div><div><span class="label">Vence</span><b>${fmt(m.fin)}</b></div><div><span class="label">${t[0]}</span><b>${t[1]}</b></div></div>
+      <div class="prog"><i style="width:${e.pct}%;background:${barCol(e.cls)}"></i></div>
+      <p class="fine" style="margin:8px 0 0">${msg}</p>
+      ${renew?`<div class="crenew">${renew}</div>`:''}
+      ${foot}
+    </div></div>`;
 }
 memb.addEventListener('click',e=>{
   if(e.target.closest('#c-out'))auth.signOut();
-  if(e.target.closest('#c-pw')){const f=$('#c-pwf');f.hidden=!f.hidden;}
+  if(e.target.closest('#c-pw')){const f=$('#c-pwf'),bt=$('#c-pw');f.hidden=!f.hidden;bt.setAttribute('aria-expanded',String(!f.hidden));if(!f.hidden)$('#c-pw1').focus();}
   if(e.target.closest('#c-link')&&user){user.linkWithPopup(gProv()).then(()=>{toast('Cuenta de Google vinculada: ahora también puedes entrar con Google.');paintMemb(user,null);loadMemb(user);}).catch(x=>{if(x.code!=='auth/popup-closed-by-user'&&x.code!=='auth/cancelled-popup-request')toast(gErr(x));});}
 });
 memb.addEventListener('submit',e=>{
