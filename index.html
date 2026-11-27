@@ -448,6 +448,35 @@ div.crow{cursor:default}
 }
 .cchip{flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center}
 .cchip span{font-size:24px}
+/* ---- Pantallas anchas: lista + ficha ---- */
+@media (min-width:1280px){
+  body.wide-admin #v-admin{max-width:1480px}
+}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(460px,600px);gap:20px;align-items:start}
+#a-side{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow:auto;border-radius:12px;scrollbar-width:thin}
+#a-side .grid2{grid-template-columns:1fr}
+#a-side>.back{margin-top:0}
+.srow.on{border-color:var(--accent);background:var(--accent-soft)}
+.sideph h2{margin-top:0}
+.mini{list-style:none;margin:8px 0 0;padding:0}
+.mini li+li{border-top:1px solid var(--line)}
+.mini button{display:flex;justify-content:space-between;gap:10px;width:100%;padding:11px 2px;background:none;border:0;color:var(--ink);font:inherit;cursor:pointer;text-align:left}
+.mini button:hover span{color:var(--accent)}
+.mini b{color:var(--carb);white-space:nowrap}
+
+/* ---- Fondo con diseño de marca (pantallas anchas) ---- */
+@media (min-width:1240px){
+  html::before,html::after{content:"";position:fixed;top:0;bottom:0;width:clamp(200px,calc((100vw - 1000px)/2),460px);pointer-events:none;z-index:0;background-repeat:no-repeat;background-size:cover}
+  html::before{left:0;background-image:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 1000%22 preserveAspectRatio=%22xMinYMax slice%22%3E %3Cg stroke=%22%23E3DE2A%22 stroke-width=%2234%22 opacity=%22.08%22%3E%3Cline x1=%22-200%22 y1=%221100%22 x2=%22400%22 y2=%22500%22/%3E%3Cline x1=%22-200%22 y1=%221010%22 x2=%22330%22 y2=%22480%22/%3E%3Cline x1=%22-200%22 y1=%22920%22 x2=%22260%22 y2=%22460%22/%3E%3C/g%3E  %3Ctext transform=%22rotate%28-90%29%22 x=%22-860%22 y=%22140%22 font-family=%22Arial Narrow,Arial,sans-serif%22 font-weight=%22700%22 font-size=%22130%22 fill=%22none%22 stroke=%22%23E3DE2A%22 stroke-width=%221.6%22 opacity=%22.12%22 letter-spacing=%228%22%3EAROM GYM%3C/text%3E %3C/svg%3E");background-position:left bottom}
+  html::after{right:0;background-image:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 1000%22 preserveAspectRatio=%22xMaxYMin slice%22%3E %3Cg fill=%22none%22 stroke=%22%23E3DE2A%22 opacity=%22.11%22%3E%3Ccircle cx=%22360%22 cy=%22230%22 r=%22190%22 stroke-width=%2216%22/%3E%3Ccircle cx=%22360%22 cy=%22230%22 r=%22150%22 stroke-width=%223%22/%3E%3C/g%3E %3Cg stroke=%22%23E3DE2A%22 stroke-width=%2234%22 opacity=%22.07%22%3E%3Cline x1=%22120%22 y1=%221050%22 x2=%22600%22 y2=%22570%22/%3E%3Cline x1=%22210%22 y1=%221050%22 x2=%22600%22 y2=%22660%22/%3E%3C/g%3E %3Cg fill=%22none%22 stroke=%22%23E3DE2A%22 stroke-width=%223%22 opacity=%22.15%22%3E%3Ccircle cx=%22250%22 cy=%22640%22 r=%2258%22/%3E%3Ccircle cx=%22250%22 cy=%22640%22 r=%2240%22/%3E%3Ccircle cx=%22250%22 cy=%22640%22 r=%2210%22/%3E%3C/g%3E %3C/svg%3E");background-position:right top}
+  html:has(body.wide-admin #v-admin:not([hidden]))::before,html:has(body.wide-admin #v-admin:not([hidden]))::after{width:clamp(0px,calc((100vw - 1480px)/2),460px)}
+  .wrap,.pvbar{position:relative;z-index:1}
+}
+@media (max-width:1719px){html:has(body.wide-admin #v-admin:not([hidden]))::before,html:has(body.wide-admin #v-admin:not([hidden]))::after{display:none}}
+.fixbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;margin-bottom:14px}
+.fixbar span{color:var(--muted);font-size:14px}
+.fixtbl input{width:90px;min-height:38px;padding:4px 8px;text-align:right}
+.xdel.armed{width:auto;padding:0 8px;color:var(--bad);border-color:var(--bad)}
 </style>
 </head>
 <body>
@@ -686,7 +715,16 @@ function renderAdmin(){
   if(logged&&!ready){$('#a-wait').innerHTML='<p class="sub" style="margin:0">'+(staffKnown?'Cargando socios…':'Comprobando acceso…')+'</p>';return;}
   if(!logged) return;
   ['socios','avisos','caja','inv','prods','ajustes'].forEach(t=>$('#at-'+t).setAttribute('aria-selected',t===tab));
-  if(tab==='socios'){
+  document.body.classList.toggle('wide-admin',WIDE());
+  if(tab==='socios'&&WIDE()){
+    if(!$('#a-split')) $('#a-body').innerHTML='<div class="split" id="a-split"><div id="a-left"></div><aside id="a-side" aria-label="Ficha del socio"></aside></div>';
+    renderSocios();
+    if(view==='detail'&&getS(curId)) renderDetail();
+    else if(view==='detail'&&waitingFor===curId) pane('side').innerHTML='<div class="panel"><p class="sub" style="margin:0">Guardando…</p></div>';
+    else if(view==='form') renderForm();
+    else {view='list';renderSidePH();}
+  } else if(tab==='socios'){
+    if($('#a-split')) $('#a-body').innerHTML='';
     if(view==='detail'&&getS(curId)) renderDetail();
     else if(view==='detail'&&waitingFor===curId) $('#a-body').innerHTML='<p class="sub">Guardando…</p>';
     else if(view==='form') renderForm();
@@ -698,11 +736,18 @@ function renderAdmin(){
   setTabBadge('#at-inv',low);
 }
 
+const WIDE=()=>window.innerWidth>=1280;
+const pane=k=>(tab==='socios'&&WIDE()&&$('#a-split'))?$(k==='list'?'#a-left':'#a-side'):$('#a-body');
+function renderSidePH(){
+  const soon=A.socios.map(m=>({m,e:estado(m)})).filter(x=>x.e.k==='pron').sort((a,b)=>a.e.left-b.e.left).slice(0,6);
+  pane('side').innerHTML=`<div class="panel sideph"><h2>Elige un socio</h2><p class="sub">Toca un nombre de la lista para ver su ficha aquí: renovar, registrar compras o crear su cuenta.</p>
+    ${soon.length?`<h3 class="h3s">Vencen esta semana</h3><ul class="mini">${soon.map(({m,e})=>`<li><button type="button" data-act="open" data-id="${m.id}"><span>${esc(m.nombre+' '+m.apellido)}</span><b>${e.left===0?'hoy':e.left===1?'mañana':e.left+' días'}</b></button></li>`).join('')}</ul>`:''}</div>`;
+}
 function renderSocios(){
   const c={act:0,pron:0,venc:0,pend:0}; A.socios.forEach(m=>c[estado(m).k]++);
   const mes=iso(today()).slice(0,7); let vm=0;
   A.socios.forEach(m=>m.compras.forEach(b=>{if(b.fecha.slice(0,7)===mes)vm+=b.precio*b.cant;}));
-  $('#a-body').innerHTML=`
+  pane('list').innerHTML=`
   <div class="stats" style="margin-top:0">
     <div class="stat"><b style="color:var(--ok)">${c.act+c.pend}</b><small>Activos</small></div>
     <div class="stat"><b style="color:var(--carb)">${c.pron}</b><small>Por vencer (7 días)</small></div>
@@ -720,7 +765,7 @@ function renderList(){
   const rows=A.socios.map(m=>({m,e:estado(m)}))
     .filter(x=>(filt==='todos'||x.e.k===filt||(filt==='act'&&x.e.k==='pend'))&&(!qq||(x.m.nombre+' '+x.m.apellido).toLowerCase().includes(qq)))
     .sort((a,b)=>order[a.e.k]-order[b.e.k]||(a.e.k==='venc'?b.e.left-a.e.left:a.e.left-b.e.left));
-  $('#a-list').innerHTML=rows.length?rows.map(({m,e})=>`<li><button type="button" class="srow" data-act="open" data-id="${m.id}">
+  $('#a-list').innerHTML=rows.length?rows.map(({m,e})=>`<li><button type="button" class="srow${view==='detail'&&curId===m.id?' on':''}" data-act="open" data-id="${m.id}" ${view==='detail'&&curId===m.id?'aria-current="true"':''}>
       <span class="av">${esc(((m.nombre[0]||'')+(m.apellido[0]||'')).toUpperCase())}</span>
       <span class="sn"><b>${esc(m.nombre+' '+m.apellido)}</b><small>${planName(m.plan)} · ${e.k==='venc'?'venció':'vence'} el ${fmtShort(m.fin)}</small></span>
       <span class="st ${e.cls}">${e.lab}</span>
@@ -734,8 +779,8 @@ function renderDetail(){
   const buys=[...m.compras].sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const tel=String(m.telefono||'').replace(/\D/g,'');
   const wa=tel?`https://wa.me/${tel.length===9?'51'+tel:tel}?text=${encodeURIComponent('Hola '+m.nombre+', este es tu código de membresía de AROM GYM. Ábrelo para ver tus fechas: '+link)}`:'';
-  $('#a-body').innerHTML=`
-  <button type="button" class="back" data-act="back">← Volver a socios</button>
+  pane('side').innerHTML=`
+  <button type="button" class="back" data-act="back">${WIDE()&&$('#a-split')?'× Cerrar ficha':'← Volver a socios'}</button>
   <div class="grid2">
     <div class="panel">
       <div class="sband b-${e.cls}"><span class="label">Membresía</span><b>${e.lab}</b></div>
@@ -789,7 +834,7 @@ function updRenew(){const m=getS(curId),r=renewDates(m,$('#r-plan').value);$('#r
 function renderForm(){
   const m=curId?getS(curId):null,t=iso(today());
   const plan=m?m.plan:'men',ini=m?m.inicio:t,fin=m?m.fin:addMonths(t,1);
-  $('#a-body').innerHTML=`
+  pane('side').innerHTML=`
   <button type="button" class="back" data-act="${m?'open':'back'}" data-id="${m?m.id:''}">← ${m?'Volver a la ficha':'Volver a socios'}</button>
   <form class="panel fwrap" id="sf" novalidate>
     <h2>${m?'Editar socio':'Nuevo socio'}</h2>
@@ -916,6 +961,12 @@ function renderAvisos(){
 }
 
 
+let wasWide=WIDE();window.addEventListener('resize',()=>{const w=WIDE();if(w!==wasWide){wasWide=w;if(user)renderAdmin();}});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;const t=e.target;if(!t||!t.matches||!t.matches('input[data-cnt],input[data-fx]'))return;
+  e.preventDefault();const f=t.form;if(!f)return;const all=[...f.querySelectorAll('input[data-cnt],input[data-fx]')],i=all.indexOf(t);
+  if(i<all.length-1){all[i+1].focus();all[i+1].select&&all[i+1].select();}else{const sb=f.querySelector('button[type=submit]');if(sb)sb.focus();}
+});
 function setTabBadge(sel,n){const b=$(sel);if(!b)return;let g=b.querySelector('.badge');if(n){if(!g){g=document.createElement('span');g.className='badge';b.appendChild(g);}g.textContent=n;}else if(g)g.remove();}
 /* ---------- Reporte del día (Excel / PDF) ---------- */
 const LIBS={xlsx:['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'],pdf:['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js']};
@@ -1125,6 +1176,7 @@ function codeLookup(v){
 }
 /* ---------- Venta de varios productos (carrito) ---------- */
 let cart=[],cartMedio='efe',cartCli='',cartNota='';
+let invFix=null;
 const r2=n=>Math.round(n*100)/100;
 const ajusteTxt=(precio,lista)=>{if(lista==null||r2(precio)===r2(lista))return '';const d=r2(precio-lista);return (d<0?'Descuento ':'Aumento ')+soles(Math.abs(d))+' c/u (lista '+soles(lista)+')';};
 const socName=m=>(m.nombre+' '+m.apellido).trim();
@@ -1272,7 +1324,8 @@ function delCompra(id){
 let invDia=null;
 function renderInv(){
   const d=invDia||iso(today()),isHoy=d===iso(today()),rec=A.inv[d]||{};
-  const ap=rec.apertura||null,ci=rec.cierre||null,ing=rec.ingresos||{},sal=rec.salidas||{},salLog=rec.salidasLog||[];
+  const ap=rec.apertura||null,ci=rec.cierre||null,ing=rec.ingresos||{},sal=rec.salidas||{},salLog=rec.salidasLog||[],ingLog=rec.ingresosLog||[];
+  if(invFix&&invFix.d!==d)invFix=null;
   const ventas=A.compras.filter(x=>x.fecha===d),vend={};ventas.forEach(v=>vend[v.pid]=(vend[v.pid]||0)+v.cant);
   const prods=A.productos.filter(p=>tracked(p)||(ap&&ap[p.id]!=null)||vend[p.id]||ing[p.id]||sal[p.id]);
   const estadoDia=ci?['Cerrado','ok']:ap?['Abierto','warn']:['Sin abrir','bad'];
@@ -1292,7 +1345,9 @@ function renderInv(){
   if(isHoy){
     if(!A.productos.length) acciones='<div class="panel"><p class="sub" style="margin:0">Primero agrega tus productos en la pestaña <b>Productos</b>.</p></div>';
     else if(!ap) acciones=countForm('openf','Abrir el día','Cuenta cuánto hay de cada producto ahora y escríbelo. Ese será el stock de inicio del día.','Abrir día con este stock',p=>tracked(p)?p.stock:'');
-    else if(!ci) acciones=`<div class="grid2">
+    else if(!ci&&invFix&&invFix.k==='ap') acciones=countForm('fixapf','Corregir stock de inicio','Cambia solo lo que se contó mal al abrir. El stock de ahora se recalcula con las ventas, la mercadería y las salidas del día.','Guardar corrección',p=>ap[p.id]??'').replace('<div class="actions">','<div class="actions"><button type="button" class="btn ghost" data-act="fixcancel">Cancelar</button>');
+    else if(!ci) acciones=`<div class="panel fixbar"><span>¿Se contó mal algo al abrir el día${rec.abiertoHora?' ('+esc(rec.abiertoHora)+')':''}?</span><button type="button" class="btn ghost sm" data-act="fixap">Corregir stock de inicio</button></div>
+    <div class="grid2">
       ${cartForm()}
       <div class="stack">
       <form class="panel" id="mercf" novalidate><h2>Agregar mercadería</h2><p class="sub">Cuando llegue un pedido, súmalo aquí y se agrega al stock.</p>
@@ -1309,6 +1364,16 @@ function renderInv(){
     </div>`+countForm('closef','Cerrar el día','Al terminar, cuenta cuánto quedó de cada producto. La app lo compara con lo que debería haber.','Cerrar día',p=>tracked(p)?p.stock:'');
     else acciones=`<div class="panel"><p class="sub" style="margin:0">El día ya está cerrado${rec.cerradoPor?' por '+esc(rec.cerradoPor):''}${rec.cerradoHora?' a las '+esc(rec.cerradoHora):''}. Descarga el reporte con los botones de arriba (Excel o PDF). Si te equivocaste al contar, puedes <button type="button" class="linkbtn" data-act="reclose">deshacer el cierre</button> y volver a contar.</p></div>`;
   }
+  if(!isHoy&&(ap||ci||Object.keys(ing).length)){
+    if(invFix&&invFix.k==='day'){
+      const fp=A.productos.filter(p=>(ap&&ap[p.id]!=null)||(ci&&ci[p.id]!=null)||ing[p.id]||tracked(p));
+      acciones=`<form class="panel" id="fixdayf" novalidate><h2>Corregir datos de este día</h2><p class="sub">Arregla lo que se anotó mal. Solo cambia el registro de este día; el stock de hoy no se toca.</p>
+        <div class="tblwrap"><table class="inv fixtbl"><thead><tr><th>Producto</th><th>Inicio</th><th>Mercadería</th><th>Cierre contado</th></tr></thead><tbody>
+        ${fp.map(p=>`<tr><td>${esc(p.nombre)}</td><td><input type="number" min="0" inputmode="numeric" data-fx="ap" data-pid="${p.id}" value="${ap&&ap[p.id]!=null?ap[p.id]:''}" aria-label="Inicio de ${esc(p.nombre)}"></td><td><input type="number" min="0" inputmode="numeric" data-fx="ing" data-pid="${p.id}" value="${ing[p.id]||''}" aria-label="Mercadería de ${esc(p.nombre)}"></td><td><input type="number" min="0" inputmode="numeric" data-fx="ci" data-pid="${p.id}" value="${ci&&ci[p.id]!=null?ci[p.id]:''}" aria-label="Cierre de ${esc(p.nombre)}"></td></tr>`).join('')}
+        </tbody></table></div><p class="fine">Las ventas se corrigen en Caja y las salidas no cambian aquí.</p>
+        <div class="actions"><button type="button" class="btn ghost" data-act="fixcancel">Cancelar</button><button class="btn" type="submit">Guardar corrección</button></div></form>`;
+    } else acciones=`<div class="panel fixbar"><span>${rec.corregidoPor?'Corregido por '+esc(rec.corregidoPor)+(rec.corregidoHora?' · '+esc(rec.corregidoHora):'')+'. ':''}¿Algo se anotó mal este día?</span><button type="button" class="btn ghost sm" data-act="fixday">Corregir datos de este día</button></div>`;
+  }
   $('#a-body').innerHTML=`
   <div class="datenav"><button type="button" data-act="iprev" aria-label="Día anterior">‹</button><strong>${isHoy?'Hoy, ':''}${parse(d).toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long'})}</strong><button type="button" data-act="inext" aria-label="Día siguiente" ${isHoy?'disabled':''}>›</button></div>
   ${repBtns(d)}
@@ -1323,6 +1388,8 @@ function renderInv(){
       :`<p class="sub" style="margin:0">${isHoy?'Aún no hay productos con control de stock. Abre el día para registrar cuánto hay.':'No hay registro de inventario para este día.'}</p>`}
   </div>
   <div class="mt">${acciones}</div>
+  ${ingLog.length?`<div class="panel mt"><h2>Mercadería que llegó</h2><p class="sub">${isHoy?'Si alguna se anotó mal, anúlala con la × y vuelve a registrarla.':'Mercadería registrada este día.'}</p>
+    <ul class="buys cash">${[...ingLog].sort((a,b)=>String(b.hora).localeCompare(String(a.hora))).map(x=>`<li><span class="dt">${esc(x.hora||'')}</span><span>${esc(x.nombre)}<small class="sm2">${x.por?esc(x.por):''}</small></span><b>+${x.cant}</b>${isHoy&&!ci?`<button type="button" class="xdel" data-act="delmer" data-id="${x.id}" aria-label="Anular ingreso de ${esc(x.nombre)}">×</button>`:''}</li>`).join('')}</ul></div>`:''}
   ${salLog.length?`<div class="panel mt"><h2>Salidas del día</h2><p class="sub">${perd?'Costo de lo que salió sin venderse: <b style="color:var(--bad)">'+soles(perd)+'</b>':'Productos que salieron sin venderse.'}</p>
     <ul class="buys cash">${[...salLog].sort((a,b)=>String(b.hora).localeCompare(String(a.hora))).map(x=>`<li><span class="dt">${esc(x.hora||'')}</span><span>${esc(x.nombre)}${x.cant>1?' × '+x.cant:''}<small class="sm2">${MOTIVOS[x.motivo]||'Otro'}${x.nota?' · '+esc(x.nota):''}</small></span><b>${x.costo!=null?'−'+soles(x.costo*x.cant):''}</b>${isHoy?`<button type="button" class="xdel" data-act="delsal" data-id="${x.id}" aria-label="Anular salida">×</button>`:'<span></span>'}</li>`).join('')}</ul></div>`:''}
   <div class="panel mt" id="inv-ventas"><h2>Ventas del día</h2>
@@ -1417,7 +1484,7 @@ ON('click',e=>{
   const m=curId?getS(curId):null;
   switch(b.dataset.act){
     case 'new': curId=null;view='form';renderAdmin();break;
-    case 'open': curId=b.dataset.id;view='detail';tab='socios';renderAdmin();scrollTo(0,0);break;
+    case 'open': curId=b.dataset.id;view='detail';tab='socios';renderAdmin();if(!WIDE())scrollTo(0,0);else{const sd=$('#a-side');if(sd)sd.scrollTop=0;}break;
     case 'back': view='list';curId=null;renderAdmin();break;
     case 'edit': view='form';renderAdmin();break;
     case 'renew': $('#renewbox').hidden=false;$('#delbox').hidden=true;updRenew();break;
@@ -1468,6 +1535,15 @@ ON('click',e=>{
       if(p&&tracked(p))bt.update(db.collection('productos').doc(p.id),{stock:INC(log.cant)});
       bt.set(db.collection('inventario').doc(d),{salidas:{[log.pid]:INC(-log.cant)},salidasLog:firebase.firestore.FieldValue.arrayRemove(log)},{merge:true});
       bt.commit().then(()=>toast('Salida anulada. El producto volvió al stock.'),fail);break;}
+    case 'fixap': invFix={k:'ap',d:iso(today())};renderAdmin();break;
+    case 'fixday': invFix={k:'day',d:invDia||iso(today())};renderAdmin();break;
+    case 'fixcancel': invFix=null;renderAdmin();break;
+    case 'delmer': {if(!b.dataset.armed){b.dataset.armed='1';b.textContent='¿Anular?';b.classList.add('armed');setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='×';b.classList.remove('armed');}},4000);break;}
+      const d=iso(today()),rec=A.inv[d]||{},log=(rec.ingresosLog||[]).find(x=>x.id===b.dataset.id);if(!log)break;
+      const p=A.productos.find(x=>x.id===log.pid),bt=db.batch();
+      if(p&&tracked(p))bt.update(db.collection('productos').doc(p.id),{stock:INC(-log.cant)});
+      bt.set(db.collection('inventario').doc(d),{ingresos:{[log.pid]:INC(-log.cant)},ingresosLog:firebase.firestore.FieldValue.arrayRemove(log)},{merge:true});
+      bt.commit().then(()=>toast('Ingreso anulado: −'+log.cant+' '+log.nombre+'.'),fail);break;}
     case 'reclose': {const d=iso(today());db.collection('inventario').doc(d).update({cierre:firebase.firestore.FieldValue.delete()}).then(()=>toast('Cierre deshecho. Puedes volver a contar.'),fail);break;}
     case 'cprev': case 'cnext': {const d=parse(cajaDia||iso(today()));d.setDate(d.getDate()+(b.dataset.act==='cprev'?-1:1));cajaDia=iso(d)>iso(today())?iso(today()):iso(d);renderCaja();break;}
     case 'delmov': if(b.dataset.armed){(b.dataset.col==='compras'?Promise.all(b.dataset.id.split(',').map(delCompra)):db.collection(b.dataset.col).doc(b.dataset.id).delete()).then(()=>toast('Movimiento anulado.'),fail);}else{b.dataset.armed='1';b.textContent='¿?';b.setAttribute('aria-label','Toca otra vez para anular');toast('Toca otra vez la ✕ para anular este movimiento.');setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='×';}},3000);}break;
@@ -1555,7 +1631,8 @@ ON('submit',e=>{
     if(!p||!(q>=1&&q<=9999)){toast('Elige el producto y una cantidad válida.');return;}
     const d=iso(today()),b=db.batch();
     b.update(db.collection('productos').doc(p.id),{stock:INC(q)});
-    b.set(db.collection('inventario').doc(d),{ingresos:{[p.id]:INC(q)}},{merge:true});
+    const log={id:Math.random().toString(36).slice(2,10),pid:p.id,nombre:p.nombre,cant:q,hora:hhmm(),por:user.email};
+    b.set(db.collection('inventario').doc(d),{ingresos:{[p.id]:INC(q)},ingresosLog:firebase.firestore.FieldValue.arrayUnion(log)},{merge:true});
     b.commit().then(()=>toast('+'+q+' '+p.nombre+' agregado al stock.'),fail);$('#m-cant').value='';
   }
   if(f.id==='salf'){
@@ -1567,6 +1644,26 @@ ON('submit',e=>{
     if(tracked(p))b.update(db.collection('productos').doc(p.id),{stock:INC(-q)});
     b.set(db.collection('inventario').doc(d),{salidas:{[p.id]:INC(q)},salidasLog:firebase.firestore.FieldValue.arrayUnion(log)},{merge:true});
     b.commit().then(()=>toast('Salida registrada: '+q+' '+p.nombre+' · '+MOTIVOS[mo]+'.'),fail);$('#x-cant').value='';$('#x-nota').value='';
+  }
+  if(f.id==='fixapf'){
+    const d=iso(today()),rec=A.inv[d]||{},ap0=rec.apertura||{},ing=rec.ingresos||{},sal=rec.salidas||{},vend={};
+    A.compras.filter(x=>x.fecha===d).forEach(v=>vend[v.pid]=(vend[v.pid]||0)+v.cant);
+    const ap={...ap0},b=db.batch();let n=0;
+    f.querySelectorAll('input[data-cnt]').forEach(i=>{const pid=i.dataset.cnt,raw=i.value.trim();
+      if(raw===''){if(ap[pid]!=null){delete ap[pid];n++;}return;}
+      const v=parseInt(raw,10);if(!(v>=0))return;
+      if(ap[pid]!==v){ap[pid]=v;n++;b.update(db.collection('productos').doc(pid),{stock:Math.max(0,v+(ing[pid]||0)-(vend[pid]||0)-(sal[pid]||0))});}});
+    if(!n){invFix=null;renderAdmin();toast('No cambiaste nada.');return;}
+    b.update(db.collection('inventario').doc(d),{apertura:ap,corregidoPor:user.email,corregidoHora:hhmm()});
+    b.commit().then(()=>{invFix=null;renderAdmin();toast('Stock de inicio corregido.');},fail);
+  }
+  if(f.id==='fixdayf'){
+    const d=invFix&&invFix.d;if(!d)return;const m={ap:{},ing:{},ci:{}};
+    f.querySelectorAll('input[data-fx]').forEach(i=>{const raw=i.value.trim();if(raw==='')return;const v=parseInt(raw,10);if(v>=0&&!(i.dataset.fx==='ing'&&v===0))m[i.dataset.fx][i.dataset.pid]=v;});
+    const rec=A.inv[d]||{},upd={ingresos:m.ing,corregidoPor:user.email,corregidoHora:new Date().toLocaleString('es-PE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false})};
+    if(Object.keys(m.ap).length||rec.apertura)upd.apertura=m.ap;
+    if(Object.keys(m.ci).length)upd.cierre=m.ci;else if(rec.cierre)upd.cierre=firebase.firestore.FieldValue.delete();
+    db.collection('inventario').doc(d).update(upd).then(()=>{invFix=null;renderAdmin();toast('Datos del día corregidos.');},fail);
   }
   if(f.id==='openf'||f.id==='closef'){
     const open=f.id==='openf',d=iso(today()),map={},b=db.batch();let n=0;
